@@ -1,3 +1,18 @@
+# Claude Code Full Stack Setup Prompt (v3.1 — Adaptive)
+
+Auto-detects your project type, language, VCS provider, and infrastructure — then installs only what matches: MCP servers, plugins, hooks, and CLAUDE.md rules.
+
+## How to Use
+
+1. Open Claude Code in your project directory
+2. Copy the **entire prompt** from the box below
+3. Paste it into Claude Code and let it do the magic
+
+---
+
+## The Prompt
+
+````
 Set up this project with my full development stack — MCP servers, plugins, hooks, and CLAUDE.md rules. Auto-detect everything about this project and install only what's relevant. Do ALL of the following without asking me anything. Just execute silently and confirm when done.
 
 ---
@@ -530,3 +545,4 @@ Monorepo: [yes/no]
 > Tier 1 (LSP) = best, native integration. Tier 2 (Serena) = good, tree-sitter semantic analysis. Tier 3 (grep) = text matching only, no semantic understanding.
 
 Do not ask me questions. Just do it all and confirm.
+````
