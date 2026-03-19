@@ -97,6 +97,45 @@ Step 4   Prioritize and execute
 
 ## The Prompts
 
+> [!IMPORTANT]
+> **False positive elimination:** Each prompt includes a CONFIDENCE ROUTING section. Do NOT enter plan mode for this — it happens inline during investigation. The flow is:
+>
+> ```
+> Found issue → Confident? ──YES──→ Report as [verified]
+>    │    (can cite exact file, line,
+>    │     and mechanism — no ambiguity)
+>    │
+>    NO (uncertain)
+>    │
+>    ▼
+> Collect all uncertain issues, then
+> dispatch each to its own subagent
+> (via the Agent tool) IN PARALLEL.
+> Each subagent independently:
+>  - Uses Sequential Thinking to trace
+>    the execution path, check guards,
+>    model data flow, test reachability
+>  - Corroborates with another tool if
+>    available (LSP, DB MCP, Playwright…)
+>  - Returns: Confirmed / Disproven /
+>    Plausible-but-unconfirmable
+>    │
+>    ├── Confirmed ──→ Report as [verified]
+>    │
+>    ├── Disproven ──→ Discard (not in output)
+>    │
+>    └── Plausible but cannot confirm
+>        (needs runtime/manual testing)
+>            │
+>            ▼
+>        Add to "Investigated but Unverified"
+>        appendix at end of report
+> ```
+>
+> **Why subagents?** Verifying each uncertain issue requires deep reasoning (Sequential Thinking, LSP tracing, etc.). Running these sequentially in the main context wastes time and risks filling the context window. Dispatching each verification as a parallel subagent keeps the main context clean and verifies all uncertain issues simultaneously.
+>
+> Only `[verified]` findings go in the main report. Unverifiable-but-plausible findings go in the appendix so they stay visible without polluting the main findings.
+
 ---
 
 ### Prompt 1 — Features, Logic Gaps & Business Logic Security
@@ -109,16 +148,30 @@ codebase using available tools.
 SCOPE: Critical and High-Priority Missing Features, Logic Gaps, and
 Business Logic Security.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
-- Sequential Thinking: Model state machines step-by-step. Validate
-  transition completeness for order lifecycles, payment flows, etc.
-- LSP/Serena: Trace call paths from frontend action dispatchers to
-  backend handlers. Use find-all-references to verify both sides connect.
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Search for state enums, route definitions, status
+  transitions. Cross-reference frontend API calls against backend routes.
+- Sequential Thinking: Model state machines and multi-step flows
+  step-by-step to validate transition completeness and identify gaps.
+- LSP/Serena: Trace call paths from frontend actions to backend handlers.
+  Use find-all-references to verify both sides connect.
 - GitHub MCP: Search issues/PRs for "race condition", "IDOR", "bypass",
   "privilege escalation" to cross-reference known issues with findings.
-- Fallback: Use Grep for state enums, route definitions, and status
-  transitions. Cross-reference frontend API calls (fetch, axios) against
-  backend route registrations using Glob and Read.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: traces the
+  execution path, checks if guards exist elsewhere, confirms the data
+  flow allows the vulnerability. Uses another tool (LSP, GitHub MCP)
+  to corroborate if available. Each subagent returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -172,17 +225,29 @@ codebase using available tools.
 SCOPE: Critical and High-Priority UX Clarity, Usability Issues, and
 Client-Side Security.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
-- Playwright MCP: Navigate actual user flows (signup, login, checkout).
-  Capture the accessibility tree at each step. Trigger validation errors
-  to verify error states exist. Check for loading/skeleton states.
-- LSP/Serena: Find all references to ErrorBoundary components and error
-  handling hooks to verify coverage across the component tree.
-- Fallback: Use Grep for error handling patterns (catch, onError,
-  ErrorBoundary), loading states (loading, isLoading, Skeleton),
-  and security patterns (localStorage, innerHTML,
-  dangerouslySetInnerHTML, document.cookie). Use Glob to find all
-  form components and verify error/loading state handling.
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Search for error handling patterns (catch, onError,
+  ErrorBoundary), loading states, security patterns (localStorage,
+  innerHTML, dangerouslySetInnerHTML, document.cookie).
+- Playwright MCP: Navigate actual user flows to confirm broken states.
+  Capture the accessibility tree to verify error/loading states render.
+- LSP/Serena: Use find-all-references on ErrorBoundary components and
+  error handling hooks to verify coverage across the component tree.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: checks whether
+  the error state actually reaches the user or is caught upstream.
+  Uses Playwright to navigate the flow live if available. Each
+  subagent returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -238,19 +303,32 @@ codebase using available tools.
 SCOPE: Critical and High-Priority API & Data Integration Flaws and
 API/Endpoint Security.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Find route definitions (app.get, @app.route, router.,
+  @Controller), middleware chains, model definitions. Compare field
+  names/types between frontend API calls and backend handlers.
 - Database MCP: Inspect actual table schemas, column types, and
-  constraints. Compare DB column types against API response
-  serialization (e.g., bigint vs JS number, decimal vs float).
-- LSP/Serena: For each endpoint, trace route registration → handler →
-  service → DB query. Verify auth/validation middleware is in the
-  chain. Use find-references to confirm frontend calls match.
-- Context7: Look up your framework's (Express/FastAPI/Django/etc.)
-  recommended patterns for request validation and auth middleware.
-- Fallback: Use Grep to find route definitions (app.get, @app.route,
-  router., @Controller), middleware chains, and model definitions.
-  Use Read to compare field names/types between frontend API calls
-  and backend handlers. Cross-reference with Glob.
+  constraints. Compare DB column types against API serialization.
+- LSP/Serena: Trace route registration → handler → service → DB query.
+  Verify auth/validation middleware is in the chain.
+- Context7: Look up framework-recommended patterns for request
+  validation and auth middleware.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: checks whether
+  the mismatch actually causes a bug or a serializer/middleware
+  handles it. For missing auth, traces the full middleware chain.
+  Uses DB MCP or LSP to corroborate if available. Each subagent
+  returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -306,19 +384,34 @@ codebase using available tools.
 SCOPE: Critical and High-Priority General Architecture, Sync Issues, and
 System-Wide Security.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Search for CORS configuration (Access-Control,
+  cors()), security headers (helmet, CSP, X-Frame), session/token
+  management patterns. Find and inspect config files.
 - Sequential Thinking: Model the system architecture as a dependency
-  graph. Reason step-by-step through failure cascading scenarios.
+  graph. Reason through failure cascading scenarios step-by-step.
 - LSP/Serena: Trace imports to build a dependency graph. Identify
   modules with high fan-in (single points of failure).
 - GitHub MCP: Check for open dependabot/security alerts. Review recent
   security-related PRs and issues.
 - Docker MCP: Inspect Dockerfile and docker-compose configs for running
   as root, exposed ports, missing healthchecks, outdated base images.
-- Fallback: Use Grep to search for CORS configuration (Access-Control,
-  cors()), security headers (helmet, CSP, X-Frame), session/token
-  management patterns. Use Glob to find all config files. Use Read to
-  inspect Docker and CI/CD configurations.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: checks whether
+  the bottleneck actually causes a system-wide outage or redundancy
+  exists. For CORS/header issues, checks if a reverse proxy or CDN
+  applies the header upstream. Uses Docker MCP or GitHub MCP to
+  corroborate if available. Each subagent returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -375,17 +468,31 @@ codebase using available tools.
 SCOPE: Critical Missing UX/UI Features, Visual Design Gaps, and
 Interface Security.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Search for accessibility patterns (aria-, role=,
+  tabIndex), route definitions, responsive breakpoints (@media,
+  useMediaQuery). Find all page/view/screen components.
 - Playwright MCP: Render key pages and capture the accessibility tree.
-  Check for ARIA labels, keyboard navigation (Tab order), and responsive
-  behavior at mobile breakpoints. Visit all routes to verify they render
-  (not 404/blank).
-- LSP/Serena: Find all route definitions and match against rendered
-  navigation links to detect orphaned or unreachable routes.
-- Fallback: Use Grep to search for accessibility patterns (aria-,
-  role=, tabIndex), route definitions, responsive breakpoints
-  (@media, useMediaQuery). Use Glob to find all page/view/screen
-  components and cross-reference against route config.
+  Check ARIA labels, keyboard navigation, responsive behavior. Visit
+  routes to verify they render (not 404/blank).
+- LSP/Serena: Find all route definitions and match against navigation
+  links to detect orphaned or unreachable routes.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: checks whether
+  the user journey actually requires the missing screen or the flow
+  is handled differently. For orphaned routes, checks dynamic
+  navigation and deep links. Uses Playwright to render the page if
+  available. Each subagent returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -446,19 +553,32 @@ codebase using available tools.
 SCOPE: Critical Testing Coverage, Quality Assurance (QA) Gaps, and
 Supply Chain Security.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Find test files and match against source files to
+  identify untested modules. Inspect CI/CD configs. Search for hardcoded
+  secret patterns (API_KEY, SECRET, PASSWORD, token =). Check lock files.
 - GitHub MCP: Check CI/CD workflow files for test gates. Check
-  dependabot alerts and security advisories. Review the dependency
-  graph for known vulnerabilities.
-- Context7: For key dependencies, check if the installed version has
-  known deprecations, breaking changes, or security patches available.
+  dependabot alerts and security advisories. Review dependency graph.
+- Context7: Check if installed dependency versions have known
+  deprecations, breaking changes, or security patches available.
 - security-guidance plugin: Run supply chain security checks against
-  the project's dependency manifests.
-- Fallback: Use Grep to find test files and match against source files
-  to identify untested modules. Use Read to inspect CI/CD configs
-  (.github/workflows/, .gitlab-ci.yml, Jenkinsfile). Search for
-  hardcoded secret patterns (API_KEY, SECRET, PASSWORD, token followed
-  by = or :). Use Bash to check lock file presence.
+  dependency manifests.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: checks whether
+  the untested code is on a critical path or a low-impact utility.
+  For potential hardcoded secrets, checks if it's a placeholder,
+  example, or test fixture. Uses GitHub MCP or Context7 to
+  corroborate if available. Each subagent returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -516,20 +636,31 @@ codebase using available tools.
 SCOPE: Critical Performance Bottlenecks, Caching Failures, and Resource
 Optimization.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Search for queries without .limit() or pagination,
+  missing memoization, full library imports. Inspect build configs.
 - Database MCP: Run EXPLAIN on critical queries to detect full table
-  scans. Check for missing indexes on columns used in WHERE, ORDER BY,
-  and JOIN clauses. Identify tables with no pagination support.
-- Playwright MCP: Load key pages and inspect the network waterfall for
-  bundle sizes, unoptimized images, and render-blocking resources.
-  Measure time-to-interactive on the main landing page.
+  scans. Check indexes on columns used in WHERE/ORDER BY/JOIN.
+- Playwright MCP: Load key pages and inspect network waterfall for
+  bundle sizes, unoptimized images, render-blocking resources.
 - LSP/Serena: Trace from list endpoints through service layers to DB
-  calls. Identify N+1 patterns (DB call inside a loop processing
-  query results).
-- Fallback: Use Grep to search for queries without .limit() or
-  pagination, missing useMemo/useCallback/React.memo, full library
-  imports (import _ from 'lodash', import moment from 'moment').
-  Use Read to inspect webpack/vite/build configs for code splitting.
+  calls. Identify N+1 patterns (DB call inside a loop).
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: checks whether
+  this is on a hot path affecting real users or an admin endpoint
+  called once a day. For N+1 suspects, traces the full call chain
+  to confirm separate queries (not a batched loader). Uses DB MCP
+  or LSP to corroborate if available. Each subagent returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -595,16 +726,31 @@ codebase using available tools.
 
 SCOPE: Critical Dead Code, Severe Code Bloat, and Maintainability Risks.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Find function/class/component definitions and search
+  for their usage. Find test/debug route files. Cross-reference backend
+  route registrations against frontend API call sites.
 - LSP/Serena: Use find-all-references on exported functions, components,
-  classes, and endpoints. Zero references = dead code. This is the
-  highest-impact tool for this audit — it turns guesswork into certainty.
-  Prioritize checking: exported API handlers, utility functions, React
-  components, and service classes.
-- Fallback: Use Grep to find function/class/component definitions, then
-  search for their usage across the codebase. Use Glob to find
-  test/debug route files. Cross-reference backend route registrations
-  against frontend API call sites (fetch, axios, $http).
+  classes, and endpoints. Zero references = confirmed dead code. This
+  eliminates false positives from dynamic imports, re-exports, or
+  indirect references that text search misses.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity
+(or LSP find-all-references returns zero):
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: checks for
+  dynamic imports, computed property access, and framework magic
+  (decorators, DI containers) that text search misses. Uses LSP
+  find-all-references to corroborate if available. Each subagent
+  returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -667,19 +813,32 @@ codebase using available tools.
 SCOPE: Critical Error Handling Gaps, System Resilience, and Failure
 Recovery.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Find catch/except/rescue/.catch( patterns. Search
+  for empty catch blocks. Search for timeout configurations. Inspect
+  error middleware and global error handlers.
 - Sequential Thinking: Trace failure paths step-by-step. For each
-  external dependency (DB, cache, queue, third-party API), model what
-  happens when it fails: timeout, error, or returns garbage data.
-- LSP/Serena: Find all try/catch blocks, error middleware registrations,
-  and error boundary components. Trace from catch blocks to verify
-  errors are actually handled (re-thrown, logged with context, surfaced
-  to user) — not silently swallowed.
-- Fallback: Use Grep to find catch, except, rescue, .catch( patterns.
-  Search for empty catch blocks (catch followed by {} or pass).
-  Search for timeout configurations (timeout, connectTimeout,
-  requestTimeout). Use Read to inspect error middleware and global
-  error handlers.
+  external dependency, model what happens when it fails: timeout,
+  error, or garbage data.
+- LSP/Serena: Find all try/catch blocks and error middleware. Trace
+  from catch blocks to verify errors are actually handled — not
+  silently swallowed.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: traces the full
+  error propagation path. Checks whether an empty catch is
+  intentional (higher-level handler exists, fire-and-forget
+  operation). Checks if the framework provides default handling.
+  Uses LSP to corroborate if available. Each subagent returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -744,19 +903,32 @@ codebase using available tools.
 SCOPE: Critical Data Integrity Issues, Migration Safety, and Storage
 Security.
 
-TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+INVESTIGATION TOOLS (use whichever tools suit each investigation):
+- Grep/Glob/Read: Find migration files and inspect for destructive
+  operations (DROP, ALTER, TRUNCATE). Search for transaction patterns.
+  Inspect schema/model definitions. Find seed scripts.
 - Database MCP: Inspect actual schema constraints (NOT NULL, UNIQUE,
-  foreign keys, CHECK). List all indexes and compare against columns
-  used in WHERE/ORDER BY clauses. Compare column types against what
-  the application code expects.
-- LSP/Serena: Trace migration file execution order. Find all multi-table
-  write operations and verify they are wrapped in transactions. Use
-  find-references on model fields to detect unused columns.
-- Fallback: Use Grep to find migration files and inspect for destructive
-  operations (DROP, ALTER, TRUNCATE). Search for transaction patterns
-  (BEGIN, COMMIT, transaction(), @transaction). Use Read to inspect
-  schema/model definitions and compare against application usage.
-  Use Glob to find all migration files and seed scripts.
+  foreign keys, CHECK). List indexes and compare against query patterns.
+  Compare column types against application code expectations.
+- LSP/Serena: Trace migration execution order. Find multi-table write
+  operations and verify transaction wrapping. Use find-references on
+  model fields to detect unused columns.
+
+CONFIDENCE ROUTING (do NOT enter plan mode for this):
+When you find an issue, assess confidence inline — "confident" means
+you can cite the exact file, line, and mechanism without ambiguity:
+- Confident → report as [verified].
+- Uncertain → collect the issue. After the investigation pass,
+  dispatch ALL uncertain issues as parallel subagents (one per issue,
+  via the Agent tool). Each subagent independently: checks whether
+  the application enforces the constraint in code or the ORM handles
+  it. For multi-table writes without explicit transactions, checks
+  if the ORM wraps them implicitly. Uses DB MCP or LSP to
+  corroborate if available. Each subagent returns one of:
+  - Confirmed → report as [verified].
+  - Disproven → discard, do not include in output.
+  - Plausible but cannot confirm → add to "Investigated but
+    Unverified" appendix at the end of the report.
 
 Analyze the codebase and report the following:
 
@@ -823,9 +995,11 @@ Every prompt enforces a consistent output structure. Each finding should look li
 
 - **Severity:** CRITICAL
 - **Location:** `src/api/payments.ts` → `processPayment()`
-- **Evidence:** Database MCP schema query revealed `price` column is
-  DECIMAL(10,2) but API serializes it as JavaScript `number` (float).
-  Grep confirmed frontend sends `price` field in POST body.
+- **Evidence:** [verified] Database MCP schema query revealed `price`
+  column is DECIMAL(10,2) but API serializes it as JavaScript `number`
+  (float). Grep confirmed frontend sends `price` field in POST body.
+  Sequential Thinking traced the flow: no server-side price lookup
+  exists — the client-supplied value is used directly.
 - **Description:** The payment endpoint accepts a `price` field from the
   client payload and uses it directly instead of reading the price from
   the database. An attacker can set any price.
@@ -837,7 +1011,7 @@ Every prompt enforces a consistent output structure. Each finding should look li
 ```
 
 > [!NOTE]
-> The **Evidence** field distinguishes tool-verified findings (higher confidence) from static-analysis findings. When MCP tools are available, cite the specific tool output. When using fallbacks, cite the grep pattern or file read.
+> Main report findings are tagged **[verified]** in the Evidence field — meaning you can cite the exact file, line, and mechanism, either from clear initial evidence or after confirmation via Sequential Thinking. Findings that were disproven during verification are discarded entirely. Findings that are plausible but could not be confirmed (e.g., need runtime testing) go in an **"Investigated but Unverified"** appendix at the end — visible but separate from the main findings.
 
 ---
 
