@@ -1,12 +1,15 @@
 # Claude Code Full Stack Setup Prompt (v3.1 — Adaptive)
 
-Auto-detects your project type, language, VCS provider, and infrastructure — then installs only what matches: MCP servers, plugins, hooks, and CLAUDE.md rules.
+> Auto-detects your project type, language, VCS provider, and infrastructure — then installs only what matches: MCP servers, plugins, hooks, and CLAUDE.md rules.
 
 ## How to Use
 
-1. Open Claude Code in your project directory
-2. Copy the **entire prompt** from the box below
-3. Paste it into Claude Code and let it do the magic
+1. Open **Claude Code** in your project directory
+2. Copy the **entire prompt** from the code block below
+3. Paste it into Claude Code — it will handle everything automatically
+
+> [!IMPORTANT]
+> Copy the full prompt including all steps. The prompt is self-contained and requires no manual intervention.
 
 ---
 

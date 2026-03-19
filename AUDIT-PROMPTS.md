@@ -1,15 +1,18 @@
 # MCP-Enhanced System Audit Prompt Suite
 
-**A battle-tested collection of structured prompts for conducting thorough codebase audits with AI assistants — now MCP-aware with automatic fallbacks.**
+> **Surface critical bugs, security holes, architectural debt, and UX failures — before your users do.**
 
-Run these prompts in Claude Code against your project to surface critical bugs, security holes, architectural debt, and UX failures — before your users do. When MCP servers and plugins are installed (via the [MCP Setup Prompt](MCP-Setup-Prompt-ClaudeCode.md)), these prompts automatically leverage them for deeper, tool-verified analysis. When they're not, every prompt falls back to built-in tools and static analysis.
+A battle-tested collection of structured prompts for conducting thorough codebase audits with AI assistants — now MCP-aware with automatic fallbacks. When MCP servers and plugins are installed (via the [MCP Setup Guide](MCP-SETUP.md)), these prompts automatically leverage them for deeper, tool-verified analysis. When they're not, every prompt falls back gracefully to built-in tools.
+
+<p align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
----
+</p>
 
-## Table of Contents
+<details>
+<summary><strong>Table of Contents</strong></summary>
 
 - [Why This Exists](#why-this-exists)
 - [How to Use](#how-to-use)
@@ -32,19 +35,21 @@ Run these prompts in Claude Code against your project to surface critical bugs, 
 - [Contributing](#contributing)
 - [License](#license)
 
+</details>
+
 ---
 
 ## Why This Exists
 
 Code reviews catch syntax issues. These prompts catch **systemic failures** — the kind that emerge from the gap between what your frontend assumes, what your backend delivers, what your tests cover, and what an attacker can exploit.
 
-Each prompt is designed to:
-
-- **Stay focused.** One concern domain per prompt prevents the AI from producing shallow, scattered analysis.
-- **Demand severity filtering.** Only Critical and High-priority issues surface — no noise.
-- **Bake in security.** Every prompt includes a dedicated security lens for its domain.
-- **Produce actionable output.** Every finding maps to a remediation step, not just a complaint.
-- **Leverage available tools.** When MCP servers and plugins are installed, prompts use them for deeper investigation. When they're not, prompts fall back gracefully.
+| Principle | How It's Applied |
+|-----------|-----------------|
+| **Focused scope** | One concern domain per prompt prevents shallow, scattered analysis |
+| **Signal over noise** | Only Critical and High-priority issues surface — no Medium/Low clutter |
+| **Security by default** | Every prompt includes a dedicated security lens for its domain |
+| **Actionable output** | Every finding maps to a remediation step, not just a complaint |
+| **Tool-adaptive** | Prompts use MCP tools when available, fall back gracefully when not |
 
 ---
 
@@ -52,11 +57,15 @@ Each prompt is designed to:
 
 ### Prerequisites
 
-**Option A — Claude Code with MCP tools (recommended):**
-If you've run the [MCP Setup Prompt](MCP-Setup-Prompt-ClaudeCode.md), start with **Prompt 0** to detect available tools. All subsequent prompts will automatically use them.
+> **Option A — Claude Code + MCP tools (recommended)**
+>
+> Run the [MCP Setup Guide](MCP-SETUP.md) first, then start with **Prompt 0** to detect available tools. All subsequent prompts will automatically use them.
 
-**Option B — Any AI assistant (no MCP):**
-Every prompt works without MCP tools. The AI will use built-in tools (Grep, Glob, Read) or analyze provided code directly. Simply skip Prompt 0.
+> **Option B — Any AI assistant (no MCP)**
+>
+> Every prompt works without MCP tools. The AI will use built-in tools (Grep, Glob, Read) or analyze provided code directly. Simply skip Prompt 0.
+
+For best results, make sure the AI has access to these context types:
 
 | Context Type | Examples |
 |---|---|
@@ -67,31 +76,38 @@ Every prompt works without MCP tools. The AI will use built-in tools (Grep, Glob
 
 ### Running the Audit
 
-**Step 1 — Run Prompt 0** (Claude Code only, optional).
-Detects available MCP tools. Skip if not using Claude Code.
-
-**Step 2 — Run prompts sequentially.**
-Copy-paste each prompt into the conversation one at a time. Each prompt builds on the mental model established by earlier ones.
-
-**Step 3 — Collect and deduplicate.**
-Some findings may appear across multiple prompts. Consolidate them into a single remediation backlog after the full run.
-
-**Step 4 — Prioritize and execute.**
-Use the severity ratings and remediation plans to drive sprint planning or hotfix cycles.
+```
+Step 1   Run Prompt 0 (Claude Code only, optional)
+         Detects available MCP tools. Skip if not using Claude Code.
+             │
+Step 2   Run prompts sequentially
+         Copy-paste each prompt one at a time. Each builds on the
+         mental model established by earlier ones.
+             │
+Step 3   Collect and deduplicate
+         Some findings may overlap across prompts. Consolidate
+         them into a single remediation backlog.
+             │
+Step 4   Prioritize and execute
+         Use severity ratings and remediation plans to drive
+         sprint planning or hotfix cycles.
+```
 
 ### Recommended Workflow
 
 ```
-Prompt 0 (Detection) — run once per session
-       ↓
-Prompt 1 (Logic)  →  Prompt 2 (UX)  →  Prompt 3 (API)  →  Prompt 4 (Architecture)
-       ↓                                                            ↓
-Prompt 5 (UI)  →  Prompt 6 (Testing)  →  Prompt 7 (Perf)  →  Prompt 8 (Maintenance)
-       ↓                                                            ↓
-Prompt 9 (Error Handling)  →  Prompt 10 (Data Integrity)  →  Consolidate & Ship
+Prompt 0 (Detection) ─── run once per session
+    │
+    ├── Prompt 1 (Logic) ──► Prompt 2 (UX) ──► Prompt 3 (API) ──► Prompt 4 (Architecture)
+    │
+    ├── Prompt 5 (UI) ──► Prompt 6 (Testing) ──► Prompt 7 (Perf) ──► Prompt 8 (Maintenance)
+    │
+    └── Prompt 9 (Error Handling) ──► Prompt 10 (Data Integrity) ──► Consolidate & Ship
 ```
 
-> **Tip:** You don't have to run all 10. Pick the prompts that match your current concern. Shipping soon? Focus on 1, 3, 6, 7. Just got a pen-test report? Focus on 1, 3, 4, 6.
+> [!TIP]
+> You don't have to run all 10. Pick the prompts that match your current concern.
+> **Shipping soon?** Focus on 1, 3, 6, 7. **Got a pen-test report?** Focus on 1, 3, 4, 6.
 
 ---
 
@@ -892,36 +908,35 @@ Every prompt enforces a consistent output structure. Each finding should look li
   matches the database price.
 ```
 
+> [!NOTE]
 > The **Evidence** field distinguishes tool-verified findings (higher confidence) from static-analysis findings. When MCP tools are available, cite the specific tool output. When using fallbacks, cite the grep pattern or file read.
 
 ---
 
 ## Tips for Best Results
 
-**1. Run Prompt 0 first (Claude Code users).**
-Tool detection ensures every subsequent prompt uses the best available investigation method automatically.
+> [!TIP]
+> **1. Run Prompt 0 first** (Claude Code users) — Tool detection ensures every subsequent prompt uses the best available investigation method automatically.
 
-**2. Scope the context to one domain at a time.**
-Running the full suite against "the entire app" yields shallow results. Instead, run it against your auth system, then your payment system, then your admin panel, etc.
+> [!TIP]
+> **2. Scope the context to one domain at a time** — Running the full suite against "the entire app" yields shallow results. Instead, run it against your auth system, then your payment system, then your admin panel, etc.
 
-**3. Include both frontend and backend.**
-These prompts are designed to find the *gaps between layers*. Frontend-only or backend-only analysis misses the most dangerous class of bugs.
+> [!TIP]
+> **3. Include both frontend and backend** — These prompts find the *gaps between layers*. Frontend-only or backend-only analysis misses the most dangerous class of bugs.
 
-**4. Re-run after major changes.**
-Treat this as a recurring audit, not a one-time exercise. Run it before major releases, after large refactors, or on a quarterly cadence.
+> [!TIP]
+> **4. Re-run after major changes** — Treat this as a recurring audit, not a one-time exercise. Run it before major releases, after large refactors, or on a quarterly cadence.
 
-**5. Combine with automated tooling.**
-These prompts complement (not replace) tools like ESLint, Semgrep, Snyk, OWASP ZAP, and Lighthouse. Use both.
+> [!TIP]
+> **5. Combine with automated tooling** — These prompts complement (not replace) tools like ESLint, Semgrep, Snyk, OWASP ZAP, and Lighthouse. Use both.
 
-**6. Customize the role and context line.**
-If your project uses a specific tech stack, add it to the opening context line. For example:
-
-```
-You are a senior full-stack engineer specializing in Next.js 14 (App
-Router), Prisma ORM, and PostgreSQL...
-```
-
-This grounds the analysis in your actual stack and produces more specific recommendations.
+> [!TIP]
+> **6. Customize the role and context line** — If your project uses a specific tech stack, add it to the opening context line:
+> ```
+> You are a senior full-stack engineer specializing in Next.js 14 (App
+> Router), Prisma ORM, and PostgreSQL...
+> ```
+> This grounds the analysis in your actual stack and produces more specific recommendations.
 
 ---
 
@@ -931,18 +946,18 @@ Quick reference showing which MCP tools enhance each prompt. All prompts fall ba
 
 | Prompt | Seq. Thinking | Context7 | GitHub MCP | DB MCP | Playwright | LSP/Serena | Docker MCP | security-guidance |
 |--------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **1** Logic & Security | \* | | \* | | | \* | | |
-| **2** UX & Client Security | | | | | \* | \* | | |
-| **3** API & Endpoints | | \* | | \* | | \* | | |
-| **4** Architecture & System | \* | | \* | | | \* | \* | |
-| **5** UI & Interface | | | | | \* | \* | | |
-| **6** Testing & Supply Chain | | \* | \* | | | | | \* |
-| **7** Performance & Caching | | | | \* | \* | \* | | |
-| **8** Dead Code & Bloat | | | | | | \* | | |
-| **9** Error Handling | \* | | | | | \* | | |
-| **10** Data Integrity | | | | \* | | \* | | |
+| **1** Logic & Security | `*` | | `*` | | | `*` | | |
+| **2** UX & Client Security | | | | | `*` | `*` | | |
+| **3** API & Endpoints | | `*` | | `*` | | `*` | | |
+| **4** Architecture & System | `*` | | `*` | | | `*` | `*` | |
+| **5** UI & Interface | | | | | `*` | `*` | | |
+| **6** Testing & Supply Chain | | `*` | `*` | | | | | `*` |
+| **7** Performance & Caching | | | | `*` | `*` | `*` | | |
+| **8** Dead Code & Bloat | | | | | | `*` | | |
+| **9** Error Handling | `*` | | | | | `*` | | |
+| **10** Data Integrity | | | | `*` | | `*` | | |
 
-> \* = tool enhances this prompt when available. LSP/Serena is the most broadly useful — it enhances 9 of 10 prompts.
+> `*` = tool enhances this prompt when available. **LSP/Serena** is the most broadly useful — it enhances **9 of 10** prompts.
 
 ---
 
@@ -950,14 +965,14 @@ Quick reference showing which MCP tools enhance each prompt. All prompts fall ba
 
 | Situation | Recommended Prompts |
 |---|---|
-| Pre-launch checklist | 0, 1, 2, 3, 5, 6 |
-| Post-incident review | 0, 4, 9, 10 |
-| Security hardening sprint | 0, 1, 3, 4, 6 |
-| Performance firefighting | 0, 7, 4 |
-| Tech debt paydown | 0, 8, 7, 10 |
+| Pre-launch checklist | `0` `1` `2` `3` `5` `6` |
+| Post-incident review | `0` `4` `9` `10` |
+| Security hardening sprint | `0` `1` `3` `4` `6` |
+| Performance firefighting | `0` `7` `4` |
+| Tech debt paydown | `0` `8` `7` `10` |
 | New team onboarding audit | All (run sequentially) |
-| Pre-pen-test preparation | 0, 1, 3, 4, 6 |
-| Accessibility compliance | 0, 5, 2 |
+| Pre-pen-test preparation | `0` `1` `3` `4` `6` |
+| Accessibility compliance | `0` `5` `2` |
 
 ---
 
@@ -980,4 +995,4 @@ MIT — use it, fork it, adapt it, share it.
 
 ---
 
-**Built for developers who ship fast and sleep well.**
+<p align="center"><strong>Built for developers who ship fast and sleep well.</strong></p>
