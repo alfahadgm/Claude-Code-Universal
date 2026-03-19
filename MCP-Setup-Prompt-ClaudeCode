@@ -1,0 +1,490 @@
+# Claude Code Full Stack Setup Prompt (v2)
+
+Copy everything below the line and paste it into Claude Code when you start a new or existing project.
+
+---
+
+```
+Set up this project with my full development stack — MCP servers, plugins, and auto-triggering skills. Do ALL of the following without asking me anything. Just execute everything silently and confirm when done.
+
+## Step 0: Detect Operating System
+
+Before installing anything, detect the OS this machine is running. Run one of these to determine the platform:
+
+```bash
+# On macOS/Linux:
+uname -s
+
+# On Windows (if uname is not available):
+echo %OS%
+```
+
+Or check with: `node -e "console.log(process.platform)"`
+
+Store the result. You MUST use OS-specific commands throughout the rest of this setup:
+
+| OS | npx MCP command format | Path style | Serena project path |
+|----|----------------------|------------|-------------------|
+| **macOS / Linux** | `claude mcp add <name> --scope user -- npx -y <package>` | `/home/user/project` | `"$(pwd)"` |
+| **Windows (native, not WSL)** | `claude mcp add-json <name> '{"command":"cmd","args":["/c","npx","-y","<package>"]}'  --scope user` | `D:/project` (forward slashes) | Use the detected absolute path with forward slashes |
+
+**CRITICAL for Windows**: npx commands MUST be wrapped with `cmd /c` or they will fail with "Connection closed" errors. The `claude mcp add` CLI can misparse the `/c` flag on Windows, so use `claude mcp add-json` instead for reliable results.
+
+## Step 1: Install Global MCP Servers (skip any already installed)
+
+Check which MCP servers are currently installed with `claude mcp list`. Then install any of these that are missing, using `--scope user` so they work across all projects.
+
+### If macOS or Linux:
+
+```bash
+claude mcp add memory --scope user -- npx -y @modelcontextprotocol/server-memory
+claude mcp add sequential-thinking --scope user -- npx -y @modelcontextprotocol/server-sequential-thinking
+```
+
+### If Windows (native, not WSL):
+
+```bash
+claude mcp add-json memory "{\"command\":\"cmd\",\"args\":[\"/c\",\"npx\",\"-y\",\"@modelcontextprotocol/server-memory\"]}" --scope user
+claude mcp add-json sequential-thinking "{\"command\":\"cmd\",\"args\":[\"/c\",\"npx\",\"-y\",\"@modelcontextprotocol/server-sequential-thinking\"]}" --scope user
+```
+
+Note: Do NOT install a Fetch MCP — Claude Code has built-in web fetching. Do NOT install Context7 as MCP — it is installed as a plugin in Step 3 (the plugin version includes auto-triggering skill + docs-researcher agent + /context7:docs command, which is better than raw MCP).
+
+## Step 2: Install Serena MCP (Project-Scoped — needs current project path)
+
+Serena gives you IDE-like semantic code intelligence — symbol-level navigation, find references, smart refactoring across 30+ languages. It MUST be project-scoped because it indexes the current codebase.
+
+**Prerequisite**: Serena requires Python and `uv`. Check if `uvx` is available by running `uvx --version`. If not installed, inform the user they need to install `uv` first: https://docs.astral.sh/uv/getting-started/installation/
+
+### If macOS or Linux:
+
+```bash
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project "$(pwd)"
+```
+
+After adding, run the indexer:
+```bash
+uvx --from git+https://github.com/oraios/serena serena project index
+```
+
+### If Windows (native, not WSL):
+
+Detect the current project path and convert backslashes to forward slashes. Then:
+
+```bash
+claude mcp add-json serena "{\"command\":\"uvx\",\"args\":[\"--from\",\"git+https://github.com/oraios/serena\",\"serena\",\"start-mcp-server\",\"--context\",\"ide-assistant\",\"--project\",\"<PROJECT_PATH_WITH_FORWARD_SLASHES>\"]}"
+```
+
+Replace `<PROJECT_PATH_WITH_FORWARD_SLASHES>` with the actual project path using forward slashes (e.g., `D:/projects/my-app`).
+
+After adding, run the indexer:
+```bash
+uvx --from git+https://github.com/oraios/serena serena project index
+```
+
+## Step 3: Install Plugins from Marketplace (skip any already installed)
+
+Check currently installed plugins first. Then install any missing ones:
+
+### Superpowers (brainstorming, TDD, debugging, subagent dev, planning)
+```
+/plugin marketplace add obra/superpowers-marketplace
+/plugin install superpowers@superpowers-marketplace
+```
+
+### Context7 (live library docs with auto-trigger skill + docs-researcher agent)
+```
+/plugin marketplace add upstash/context7
+/plugin install context7-plugin@context7-marketplace
+```
+
+### Code Simplifier (official Anthropic — cleans up AI-generated code)
+```
+/plugin install code-simplifier
+```
+
+### Skill Creator (official Anthropic — ONLY install if not already present)
+```
+/plugin install skill-creator
+```
+
+## Step 4: Create Project Skills Directory and Files
+
+Create `.claude/skills/` in this project root, then create ALL of the following skill files:
+
+### File: `.claude/skills/memory-manager.md`
+
+```markdown
+---
+name: memory-manager
+description: "AUTO-TRIGGER: Use the Memory MCP server to store and recall project context. Triggers when: starting a new session (recall what you know about this project), the user mentions preferences/conventions/standards they want remembered, making architectural decisions worth preserving, the user says 'remember this' or 'don't forget' or references something from a past session. Also trigger at session end to store key decisions made during this session."
+autoTrigger: true
+tools: ["memory"]
+---
+
+# Memory Manager Skill
+
+## When to Use (Automatically)
+
+1. **Session Start** — Query memory for everything known about the current project directory, user preferences, tech stack, and past decisions
+2. **User states a preference** — Any time the user says how they want things done, store it immediately
+3. **Architectural decisions** — After any significant decision, store the decision AND the reasoning
+4. **User references the past** — If the user says "like we did before", "remember when", "the usual way", query memory first
+5. **Session End / Major milestone** — Store a summary of what was accomplished and any decisions made
+
+## How to Use
+
+- `create_entities` — Store new knowledge (project details, preferences, decisions)
+- `create_relations` — Link entities (e.g., "project X" uses "TypeScript")
+- `search_nodes` — Find relevant stored knowledge
+- `open_nodes` — Retrieve specific entities
+
+## Storage Format
+
+Store entities with clear names and structured observations:
+- Entity: "project:<project-name>" with observations about stack, structure, conventions
+- Entity: "preference:<topic>" with observations about user preferences
+- Entity: "decision:<date-topic>" with observations about what was decided and why
+```
+
+### File: `.claude/skills/deep-thinker.md`
+
+```markdown
+---
+name: deep-thinker
+description: "AUTO-TRIGGER: Use the Sequential Thinking MCP for complex problems that should not be answered in one shot. Triggers when: debugging issues with unclear root causes, designing system architecture or data models, evaluating trade-offs between multiple approaches, planning multi-step refactors or migrations, the user asks what is the best approach, any problem where the first obvious answer might not be the best one, and when a task has 3+ viable approaches that need comparison."
+autoTrigger: true
+tools: ["sequential-thinking"]
+---
+
+# Deep Thinker Skill
+
+## When to Use (Automatically)
+
+1. **Architecture decisions** — Think through it step by step with trade-offs
+2. **Debugging without obvious cause** — Systematically eliminate possibilities
+3. **Multi-approach problems** — Compare 3+ approaches before recommending
+4. **Migration/refactor planning** — Break down steps, identify risks, plan the order
+5. **Performance optimization** — Analyze bottlenecks systematically
+6. **Root cause analysis** — When the user asks "why" about a complex issue
+
+## When NOT to Use
+
+- Simple code generation, straightforward bug fixes, quick factual answers
+
+## How to Use
+
+Call the `sequentialthinking` tool. Use it to break problems into steps, revise thinking, branch into alternatives, and verify reasoning before committing.
+```
+
+### File: `.claude/skills/serena-code-intel.md`
+
+```markdown
+---
+name: serena-code-intel
+description: "AUTO-TRIGGER: Use Serena MCP for semantic code understanding and intelligent navigation. Triggers when: the user asks to find where something is defined or used, refactoring code across multiple files, understanding code relationships and dependencies, finding all references to a symbol, navigating large codebases, analyzing architecture or component relationships, the user asks 'where is X used' or 'what calls this function' or 'show me the structure of'. Always prefer Serena's symbol-level tools over grep or file reading for code navigation."
+autoTrigger: true
+tools: ["serena"]
+---
+
+# Serena Code Intelligence Skill
+
+## When to Use (Automatically)
+
+1. **Finding definitions** — Use `find_symbol` instead of grep. Serena understands code structure.
+2. **Finding references** — Use `find_referencing_symbols` to find everywhere a function/class/variable is used
+3. **Refactoring across files** — Use Serena to understand all usage locations before making changes
+4. **Understanding architecture** — Use `get_project_overview` to understand project structure
+5. **Editing at symbol level** — Use `insert_after_symbol` or `replace_symbol_body` for precise edits
+6. **Large codebases** — Serena reads at symbol level, saving tokens vs reading entire files
+
+## When NOT to Use
+
+- Simple single-file edits where you can already see the code
+- Non-code files (markdown, config, etc.)
+- Projects not yet indexed by Serena
+
+## How to Use
+
+- `find_symbol` — Find where something is defined
+- `find_referencing_symbols` — Find all references to a symbol
+- `get_project_overview` — Understand project structure
+- `insert_after_symbol` — Add code after a specific symbol
+- `replace_symbol_body` — Replace a function/method body
+- `prepare_for_new_conversation` — Save context before switching tasks
+
+## Rules
+
+- Always prefer Serena over grep/find for code navigation — it understands code semantically
+- Use `get_project_overview` at session start for unfamiliar codebases
+- After Serena indexes, it builds `.serena/memories/` — these persist across sessions
+```
+
+### File: `.claude/skills/code-cleaner.md`
+
+```markdown
+---
+name: code-cleaner
+description: "AUTO-TRIGGER: Use the code-simplifier subagent to clean up AI-generated or messy code. Triggers when: a long coding session just finished with multiple files changed, before creating a pull request or committing code, the user says 'clean this up' or 'simplify' or 'refactor for readability', after implementing a complex feature with lots of generated code, or when code works but is verbose or hard to follow. The code-simplifier never changes functionality — only improves clarity, consistency, and maintainability."
+autoTrigger: true
+tools: ["code-simplifier"]
+---
+
+# Code Cleaner Skill
+
+## When to Use (Automatically)
+
+1. **End of long coding session** — After implementing multiple features or making many changes, suggest running code-simplifier
+2. **Before PR/commit** — Clean up code before it gets reviewed by humans
+3. **User says "clean up" or "simplify"** — Invoke the code-simplifier subagent
+4. **Verbose AI-generated code** — After Claude generates a lot of code, offer to simplify it
+5. **Complex refactors** — After big changes, run a cleanup pass
+
+## When NOT to Use
+
+- Quick single-line fixes
+- When the user explicitly says not to change the code style
+- When code is already clean and well-structured
+
+## How to Use
+
+Invoke the code-simplifier subagent. It will:
+- Preserve exact functionality — never changes what code does
+- Follow CLAUDE.md coding standards
+- Choose clarity over brevity
+- Remove redundant code without removing valuable comments
+- Apply consistent patterns across the codebase
+
+## Rules
+
+- NEVER change functionality — only improve implementation
+- Always run in a git-tracked directory so changes can be reviewed/reverted
+- Suggest running it — do not force it without the user knowing
+- Respects project-specific coding standards from CLAUDE.md
+```
+
+### File: `.claude/skills/claude-md-manager.md`
+
+```markdown
+---
+name: claude-md-manager
+description: "AUTO-TRIGGER: Manage and maintain the project's CLAUDE.md file. Triggers when: starting a new project that has no CLAUDE.md, the user says 'update CLAUDE.md' or 'add this to project rules', after making decisions about project conventions or standards that should be persisted, when the current CLAUDE.md is missing important project context (detected languages, tools, commands), or when the user asks to audit or validate the CLAUDE.md. Keep CLAUDE.md as the single source of truth for project-level agent guidance."
+autoTrigger: true
+---
+
+# CLAUDE.md Manager Skill
+
+## When to Use (Automatically)
+
+1. **New project with no CLAUDE.md** — Detect the project's languages, tools, and structure, then generate an appropriate CLAUDE.md
+2. **User establishes new conventions** — When the user says "always do X" or "never do Y" for this project, add it to CLAUDE.md
+3. **After significant architectural decisions** — Update CLAUDE.md with the decided patterns, frameworks, and constraints
+4. **Periodic validation** — If something feels off (Claude not following expected conventions), check if CLAUDE.md accurately reflects the project
+5. **User explicitly asks** — "Update CLAUDE.md", "Add this rule", "Check our project config"
+
+## How to Manage CLAUDE.md
+
+### Creating (new project)
+1. Scan the project for: languages used, package managers, test frameworks, linting tools, folder structure
+2. Read package.json / requirements.txt / go.mod / Cargo.toml for dependencies
+3. Check for existing config files (.eslintrc, prettier, tsconfig, etc.)
+4. Generate CLAUDE.md with: project description, tech stack, coding conventions, test commands, build commands, and any detected patterns
+
+### Updating (existing project)
+1. Read current CLAUDE.md
+2. Append new rules or conventions under the appropriate section
+3. Do NOT remove existing rules unless explicitly asked
+4. Keep it organized: group related rules under clear headings
+
+### Structure Template
+```
+# Project Name
+
+## Tech Stack
+- Language, framework, key libraries
+
+## Commands
+- Build: `command`
+- Test: `command`
+- Lint: `command`
+
+## Conventions
+- Coding style rules
+- Naming conventions
+- File organization patterns
+
+## Architecture Decisions
+- Key decisions and their reasoning
+
+## MCP Tool Rules
+- Auto-trigger rules for this project
+```
+
+## Rules
+
+- CLAUDE.md is the project's source of truth — keep it accurate
+- Never remove rules without explicit permission
+- Keep it concise — no essays, just clear directives
+- Update it incrementally, not by rewriting the whole thing
+```
+
+### File: `.claude/skills/superpowers-workflow.md`
+
+```markdown
+---
+name: superpowers-workflow
+description: "AUTO-TRIGGER: Use Superpowers skills for structured development workflows. Triggers when: starting a new feature (use brainstorming before coding), planning a complex implementation (use write-plan), executing a multi-step plan (use execute-plan), debugging a non-trivial issue (use systematic-debugging), writing tests (use TDD red-green-refactor cycle). Superpowers enforces disciplined development — brainstorm first, plan second, implement third. Never skip straight to code for anything non-trivial."
+autoTrigger: true
+---
+
+# Superpowers Workflow Skill
+
+## When to Use (Automatically)
+
+1. **New feature request** — ALWAYS brainstorm before writing code. Use `/superpowers:brainstorm` or invoke the brainstorming skill conversationally
+2. **Complex implementation** — Use `/superpowers:write-plan` to create a structured plan before coding
+3. **Executing a plan** — Use `/superpowers:execute-plan` to run batched implementation with review checkpoints
+4. **Debugging hard issues** — Use the systematic-debugging skill (4-phase root cause process)
+5. **Writing tests** — Follow TDD: write failing test, implement, pass, refactor
+6. **Code review needed** — Use the requesting-code-review skill between tasks
+
+## Workflow Order (for non-trivial work)
+
+1. **Brainstorm** — Clarify requirements, constraints, edge cases BEFORE any code
+2. **Plan** — Break work into micro-tasks (2-5 min each), write to a plan file
+3. **Execute** — Implement task by task with TDD and review gates
+4. **Simplify** — Run code-simplifier after implementation
+5. **Review** — Code review with confidence-based filtering
+
+## When NOT to Use
+
+- Trivial changes: typo fixes, config tweaks, single-line edits
+- Quick questions or explanations
+- Superpowers will skip the full workflow automatically for small tasks
+
+## Key Principles (from Superpowers)
+
+- YAGNI — Build the simplest thing that works
+- Evidence over claims — Verify everything actually works before declaring success
+- Tests must fail before implementation (TDD)
+- Critical review issues block progress until fixed
+```
+
+### File: `.claude/skills/skill-creator-guide.md`
+
+```markdown
+---
+name: skill-creator-guide
+description: "AUTO-TRIGGER (conditional): Use the skill-creator plugin when a repeatable workflow pattern is detected that would benefit from being captured as a reusable skill. Triggers when: you notice the user repeating the same multi-step process across sessions or tasks (e.g., always setting up projects the same way, always running the same review checklist, always following the same deployment steps), the user says 'I always do this' or 'every time I need to' or 'make this reusable', a workaround or custom process is used 3+ times and would be more efficient as a skill, the user explicitly asks to create or improve a skill, or when a project-specific workflow has matured enough that codifying it would save significant future time. Do NOT trigger for one-off tasks or workflows that are still evolving."
+autoTrigger: true
+---
+
+# Skill Creator Guide
+
+## When to Auto-Trigger
+
+### Detect These Patterns (suggest creating a skill):
+
+1. **Repeated multi-step workflows** — If the user has done the same 3+ step process more than twice (e.g., "set up a new API endpoint" always involves creating route, controller, validation, test, and docs), suggest: "I notice you follow the same pattern every time. Want me to create a skill so this happens automatically?"
+2. **User signals repetition** — Phrases like "I always do this", "every time I start a new...", "can we automate this", "make this reusable", "I'm tired of repeating this" — these are direct triggers
+3. **Project-specific conventions that are complex** — If the project has a unique workflow (e.g., specific PR process, deployment checklist, code generation pattern) that takes multiple steps and is done regularly, suggest capturing it as a skill
+4. **Mature workarounds** — When a manual process has been refined over multiple sessions and is now stable, it is ready to become a skill
+5. **Cross-project patterns** — If Memory MCP shows the user follows the same process across different projects, suggest a global skill
+
+### Do NOT Trigger When:
+
+- The workflow is still being figured out (let it mature first)
+- It is a one-off task that will not repeat
+- The process is too simple to need a skill (1-2 steps)
+- The user is in the middle of focused work and a suggestion would be disruptive
+
+## How to Suggest
+
+When you detect a pattern, do not just invoke skill-creator silently. Instead:
+1. Point out the pattern: "I've noticed you follow the same steps every time you [X]"
+2. Explain the benefit: "If we capture this as a skill, Claude will do it automatically whenever it detects this context"
+3. Ask for confirmation: "Want me to create a reusable skill for this?"
+4. Only after confirmation, invoke `/skill-creator` in Create mode
+
+## How to Use (after user confirms)
+
+Invoke with `/skill-creator` and choose a mode:
+- **Create** — Build a new skill from scratch through dialog
+- **Eval** — Run a skill against test cases and grade the output
+- **Improve** — Suggest targeted improvements based on eval results
+- **Benchmark** — Measure performance with statistical confidence across multiple runs
+
+## Self-Improvement Loop
+
+After creating a skill, note it in Memory MCP so you can:
+- Track which skills were created for this user/project
+- Suggest improvements after the skill has been used a few times
+- Offer to run evals if the skill output quality seems inconsistent
+```
+
+## Step 5: Create or Update Project CLAUDE.md
+
+If a `CLAUDE.md` already exists in the project root, append the content below to the end of it with a `---` separator. If it does not exist, create it with this content:
+
+```markdown
+# MCP & Plugin Auto-Trigger Rules
+
+## DO NOT WAIT TO BE ASKED — Use these tools proactively:
+
+### Memory (ALWAYS at session start and end)
+- Start: Search memory for this project, user preferences, past decisions
+- During: Store any preferences, conventions, or decisions stated or agreed on
+- End: Store summary of key accomplishments and decisions
+
+### Context7 Plugin (ALWAYS before writing library code)
+- Before generating code that imports ANY library, use Context7 to fetch live docs
+- The plugin auto-triggers when it detects library/framework work — let it do its thing
+- Use /context7:docs for explicit manual lookups when needed
+- Never rely on training data for API signatures, config options, or method names
+- Check package.json / requirements.txt early to know what is in use
+
+### Serena (ALWAYS for code navigation in this project)
+- Use find_symbol and find_referencing_symbols instead of grep for code navigation
+- Use get_project_overview when exploring unfamiliar parts of the codebase
+- Use symbol-level editing for precise refactors across multiple files
+
+### Sequential Thinking (Complex decisions only)
+- Architecture, unclear debugging, multi-approach trade-offs, migration planning
+- Skip for simple tasks
+
+### Superpowers (Non-trivial features)
+- Brainstorm before coding any new feature
+- Write a plan before complex implementations
+- Follow TDD red-green-refactor cycle
+- Run code review between major tasks
+
+### Code Simplifier (After long sessions)
+- Suggest running code-simplifier after implementing complex features
+- Always run before creating PRs
+- Never changes functionality — only clarity
+
+### CLAUDE.md Manager (Keep project rules current)
+- If this CLAUDE.md is missing project context, update it
+- When new conventions are established, add them here
+
+### Skill Creator (Auto-trigger when patterns detected)
+- Watch for repeated multi-step workflows the user does more than twice
+- When a pattern is mature and repeatable, SUGGEST creating a skill (do not silently invoke)
+- After creating a skill, store it in Memory so you can suggest improvements later
+- Also trigger when the user explicitly asks to create, test, or improve a skill
+
+## Principle
+Brainstorm before building. Check docs before writing code. Remember context between sessions. Think through hard problems. Clean up after long sessions. Spot repeatable patterns and offer to turn them into skills. Never guess when you can verify.
+```
+
+## Step 6: Verify and Report
+
+After completing all steps:
+1. Run `claude mcp list` to confirm all 3 MCP servers are installed (memory, sequential-thinking, serena)
+2. List installed plugins to confirm superpowers, context7, code-simplifier, and skill-creator are present
+3. List the created skill files to confirm all 7 exist in `.claude/skills/`
+4. Confirm CLAUDE.md exists and contains the auto-trigger rules
+5. Give me a short summary table of what was set up
+
+Do not ask me questions. Just do it all and confirm.
+```
