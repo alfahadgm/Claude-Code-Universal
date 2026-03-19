@@ -1,8 +1,8 @@
-# 🔍 System Audit Prompt Suite
+# MCP-Enhanced System Audit Prompt Suite
 
-**A battle-tested collection of structured prompts for conducting thorough codebase audits with AI assistants.**
+**A battle-tested collection of structured prompts for conducting thorough codebase audits with AI assistants — now MCP-aware with automatic fallbacks.**
 
-Run these prompts against your frontend and backend code to surface critical bugs, security holes, architectural debt, and UX failures — before your users do.
+Run these prompts in Claude Code against your project to surface critical bugs, security holes, architectural debt, and UX failures — before your users do. When MCP servers and plugins are installed (via the [MCP Setup Prompt](MCP-Setup-Prompt-ClaudeCode.md)), these prompts automatically leverage them for deeper, tool-verified analysis. When they're not, every prompt falls back to built-in tools and static analysis.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -14,6 +14,7 @@ Run these prompts against your frontend and backend code to surface critical bug
 - [Why This Exists](#why-this-exists)
 - [How to Use](#how-to-use)
 - [The Prompts](#the-prompts)
+  - [Prompt 0 — Tool Detection Preamble](#prompt-0--tool-detection-preamble)
   - [Prompt 1 — Features, Logic Gaps & Business Logic Security](#prompt-1--features-logic-gaps--business-logic-security)
   - [Prompt 2 — UX Clarity, Usability & Client-Side Security](#prompt-2--ux-clarity-usability--client-side-security)
   - [Prompt 3 — API & Data Integration Flaws & Endpoint Security](#prompt-3--api--data-integration-flaws--endpoint-security)
@@ -26,6 +27,8 @@ Run these prompts against your frontend and backend code to surface critical bug
   - [Prompt 10 — Data Integrity, Migrations & Storage Security](#prompt-10--data-integrity-migrations--storage-security)
 - [Output Format](#output-format)
 - [Tips for Best Results](#tips-for-best-results)
+- [Tool-Prompt Matrix](#tool-prompt-matrix)
+- [Quick Reference: Which Prompt When?](#quick-reference-which-prompt-when)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -41,6 +44,7 @@ Each prompt is designed to:
 - **Demand severity filtering.** Only Critical and High-priority issues surface — no noise.
 - **Bake in security.** Every prompt includes a dedicated security lens for its domain.
 - **Produce actionable output.** Every finding maps to a remediation step, not just a complaint.
+- **Leverage available tools.** When MCP servers and plugins are installed, prompts use them for deeper investigation. When they're not, prompts fall back gracefully.
 
 ---
 
@@ -48,7 +52,11 @@ Each prompt is designed to:
 
 ### Prerequisites
 
-Gather the context you want audited. The more complete, the better the analysis:
+**Option A — Claude Code with MCP tools (recommended):**
+If you've run the [MCP Setup Prompt](MCP-Setup-Prompt-ClaudeCode.md), start with **Prompt 0** to detect available tools. All subsequent prompts will automatically use them.
+
+**Option B — Any AI assistant (no MCP):**
+Every prompt works without MCP tools. The AI will use built-in tools (Grep, Glob, Read) or analyze provided code directly. Simply skip Prompt 0.
 
 | Context Type | Examples |
 |---|---|
@@ -59,11 +67,11 @@ Gather the context you want audited. The more complete, the better the analysis:
 
 ### Running the Audit
 
-**Step 1 — Prepare your context.**
-Paste or attach the relevant source files into the conversation. If your codebase is large, focus on one domain at a time (e.g., auth system, payment flow, user management).
+**Step 1 — Run Prompt 0** (Claude Code only, optional).
+Detects available MCP tools. Skip if not using Claude Code.
 
 **Step 2 — Run prompts sequentially.**
-Copy-paste each prompt into the AI conversation one at a time. Each prompt builds on the mental model established by earlier ones.
+Copy-paste each prompt into the conversation one at a time. Each prompt builds on the mental model established by earlier ones.
 
 **Step 3 — Collect and deduplicate.**
 Some findings may appear across multiple prompts. Consolidate them into a single remediation backlog after the full run.
@@ -74,6 +82,8 @@ Use the severity ratings and remediation plans to drive sprint planning or hotfi
 ### Recommended Workflow
 
 ```
+Prompt 0 (Detection) — run once per session
+       ↓
 Prompt 1 (Logic)  →  Prompt 2 (UX)  →  Prompt 3 (API)  →  Prompt 4 (Architecture)
        ↓                                                            ↓
 Prompt 5 (UI)  →  Prompt 6 (Testing)  →  Prompt 7 (Perf)  →  Prompt 8 (Maintenance)
@@ -89,17 +99,84 @@ Prompt 9 (Error Handling)  →  Prompt 10 (Data Integrity)  →  Consolidate & S
 
 ---
 
+### Prompt 0 — Tool Detection Preamble
+
+> **Run once** at the start of an audit session. Detects available MCP servers, plugins, and built-in tools. Subsequent prompts reference the inventory to decide which investigation methods to use. **Skip this if not using Claude Code.**
+
+````
+You are preparing for a codebase audit. Before running any analysis
+prompts, detect which tools are available in this session.
+
+DETECTION STEPS:
+
+1. MCP SERVERS — check if each tool is callable:
+   - Sequential Thinking: attempt a trivial
+     mcp__sequential-thinking__sequentialthinking call
+   - GitHub MCP: check if github tools are listed (search_repositories,
+     get_file_contents, list_issues, etc.)
+   - Database MCP: check if supabase or dbhub tools are listed
+     (list_tables, run_query, etc.)
+   - Playwright MCP: check if playwright tools are listed
+     (browser_navigate, browser_snapshot, etc.)
+   - Docker MCP: check if docker tools are listed
+   - Serena: check if serena tools are listed (find_symbol,
+     find_referencing_symbols, get_project_overview, etc.)
+
+2. PLUGINS — check for:
+   - Context7 plugin (resolve-library-id, query-docs)
+   - security-guidance plugin
+   - LSP tools (go-to-definition, find-references, hover)
+
+3. BUILT-IN TOOLS — always available in Claude Code:
+   - Grep, Glob, Read, Bash, Edit, Write
+
+OUTPUT — report as a compact table:
+
+TOOL INVENTORY:
+| Tool                | Status  | Notes                      |
+|---------------------|---------|----------------------------|
+| Sequential Thinking | YES/NO  |                            |
+| Context7            | YES/NO  |                            |
+| GitHub MCP          | YES/NO  |                            |
+| Database MCP        | YES/NO  | type: supabase / dbhub     |
+| Playwright MCP      | YES/NO  |                            |
+| Docker MCP          | YES/NO  |                            |
+| LSP                 | YES/NO  | languages: [list]          |
+| Serena              | YES/NO  |                            |
+| security-guidance   | YES/NO  |                            |
+| Grep/Glob/Read/Bash | YES     | built-in, always available |
+
+Carry this inventory forward. Each subsequent audit prompt will
+reference it to decide which investigation methods to use.
+
+If NO MCP tools are detected, that is fine — all audit prompts have
+built-in fallbacks using Grep, Glob, Read, and Bash.
+````
+
+---
+
 ### Prompt 1 — Features, Logic Gaps & Business Logic Security
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical and High-Priority Missing Features, Logic Gaps, and
 Business Logic Security.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- Sequential Thinking: Model state machines step-by-step. Validate
+  transition completeness for order lifecycles, payment flows, etc.
+- LSP/Serena: Trace call paths from frontend action dispatchers to
+  backend handlers. Use find-all-references to verify both sides connect.
+- GitHub MCP: Search issues/PRs for "race condition", "IDOR", "bypass",
+  "privilege escalation" to cross-reference known issues with findings.
+- Fallback: Use Grep for state enums, route definitions, and status
+  transitions. Cross-reference frontend API calls (fetch, axios) against
+  backend route registrations using Glob and Read.
+
+Analyze the codebase and report the following:
 
 1. FEATURE PARITY GAPS
    - Core features the frontend expects but the backend does not support
@@ -129,27 +206,41 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (MCP query, grep match,
+    code read, LSP trace)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 2 — UX Clarity, Usability & Client-Side Security
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical and High-Priority UX Clarity, Usability Issues, and
 Client-Side Security.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- Playwright MCP: Navigate actual user flows (signup, login, checkout).
+  Capture the accessibility tree at each step. Trigger validation errors
+  to verify error states exist. Check for loading/skeleton states.
+- LSP/Serena: Find all references to ErrorBoundary components and error
+  handling hooks to verify coverage across the component tree.
+- Fallback: Use Grep for error handling patterns (catch, onError,
+  ErrorBoundary), loading states (loading, isLoading, Skeleton),
+  and security patterns (localStorage, innerHTML,
+  dangerouslySetInnerHTML, document.cookie). Use Glob to find all
+  form components and verify error/loading state handling.
+
+Analyze the codebase and report the following:
 
 1. BROKEN USER FLOWS
    - User journeys that dead-end, loop, or lack a completion state
@@ -181,27 +272,43 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (Playwright snapshot,
+    grep match, code read, LSP trace)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 3 — API & Data Integration Flaws & Endpoint Security
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical and High-Priority API & Data Integration Flaws and
 API/Endpoint Security.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- Database MCP: Inspect actual table schemas, column types, and
+  constraints. Compare DB column types against API response
+  serialization (e.g., bigint vs JS number, decimal vs float).
+- LSP/Serena: For each endpoint, trace route registration → handler →
+  service → DB query. Verify auth/validation middleware is in the
+  chain. Use find-references to confirm frontend calls match.
+- Context7: Look up your framework's (Express/FastAPI/Django/etc.)
+  recommended patterns for request validation and auth middleware.
+- Fallback: Use Grep to find route definitions (app.get, @app.route,
+  router., @Controller), middleware chains, and model definitions.
+  Use Read to compare field names/types between frontend API calls
+  and backend handlers. Cross-reference with Glob.
+
+Analyze the codebase and report the following:
 
 1. CONTRACT MISMATCHES
    - Request payloads the frontend sends that the backend does not
@@ -233,27 +340,43 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s), endpoint(s), and function/component name(s)
+  - Evidence: Tool/method that revealed this (DB schema query, LSP
+    trace, grep match, Context7 doc reference)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 4 — Architecture, Sync Issues & System Security
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical and High-Priority General Architecture, Sync Issues, and
 System-Wide Security.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- Sequential Thinking: Model the system architecture as a dependency
+  graph. Reason step-by-step through failure cascading scenarios.
+- LSP/Serena: Trace imports to build a dependency graph. Identify
+  modules with high fan-in (single points of failure).
+- GitHub MCP: Check for open dependabot/security alerts. Review recent
+  security-related PRs and issues.
+- Docker MCP: Inspect Dockerfile and docker-compose configs for running
+  as root, exposed ports, missing healthchecks, outdated base images.
+- Fallback: Use Grep to search for CORS configuration (Access-Control,
+  cors()), security headers (helmet, CSP, X-Frame), session/token
+  management patterns. Use Glob to find all config files. Use Read to
+  inspect Docker and CI/CD configurations.
+
+Analyze the codebase and report the following:
 
 1. ARCHITECTURAL BOTTLENECKS & FAILURES
    - Single points of failure that take down the entire system.
@@ -286,27 +409,41 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (Sequential Thinking
+    analysis, GitHub alert, Docker inspect, grep match)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 5 — Missing Critical UX/UI Features & Interface Integrity
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical Missing UX/UI Features, Visual Design Gaps, and
 Interface Security.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- Playwright MCP: Render key pages and capture the accessibility tree.
+  Check for ARIA labels, keyboard navigation (Tab order), and responsive
+  behavior at mobile breakpoints. Visit all routes to verify they render
+  (not 404/blank).
+- LSP/Serena: Find all route definitions and match against rendered
+  navigation links to detect orphaned or unreachable routes.
+- Fallback: Use Grep to search for accessibility patterns (aria-,
+  role=, tabIndex), route definitions, responsive breakpoints
+  (@media, useMediaQuery). Use Glob to find all page/view/screen
+  components and cross-reference against route config.
+
+Analyze the codebase and report the following:
 
 1. MISSING SCREENS & JOURNEY GAPS
    - Mandatory user journey steps with no corresponding UI (e.g., email
@@ -343,27 +480,43 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (Playwright a11y tree,
+    LSP route trace, grep match, code read)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 6 — Testing Coverage, QA & Supply Chain Security
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical Testing Coverage, Quality Assurance (QA) Gaps, and
 Supply Chain Security.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- GitHub MCP: Check CI/CD workflow files for test gates. Check
+  dependabot alerts and security advisories. Review the dependency
+  graph for known vulnerabilities.
+- Context7: For key dependencies, check if the installed version has
+  known deprecations, breaking changes, or security patches available.
+- security-guidance plugin: Run supply chain security checks against
+  the project's dependency manifests.
+- Fallback: Use Grep to find test files and match against source files
+  to identify untested modules. Use Read to inspect CI/CD configs
+  (.github/workflows/, .gitlab-ci.yml, Jenkinsfile). Search for
+  hardcoded secret patterns (API_KEY, SECRET, PASSWORD, token followed
+  by = or :). Use Bash to check lock file presence.
+
+Analyze the codebase and report the following:
 
 1. MISSING TESTS FOR HIGH-RISK FLOWS
    - Authentication flows (login, logout, token refresh, password
@@ -397,27 +550,44 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (GitHub advisory, Context7
+    deprecation check, grep match, CI config read)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 7 — Performance, Caching & Resource Optimization
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical Performance Bottlenecks, Caching Failures, and Resource
 Optimization.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- Database MCP: Run EXPLAIN on critical queries to detect full table
+  scans. Check for missing indexes on columns used in WHERE, ORDER BY,
+  and JOIN clauses. Identify tables with no pagination support.
+- Playwright MCP: Load key pages and inspect the network waterfall for
+  bundle sizes, unoptimized images, and render-blocking resources.
+  Measure time-to-interactive on the main landing page.
+- LSP/Serena: Trace from list endpoints through service layers to DB
+  calls. Identify N+1 patterns (DB call inside a loop processing
+  query results).
+- Fallback: Use Grep to search for queries without .limit() or
+  pagination, missing useMemo/useCallback/React.memo, full library
+  imports (import _ from 'lodash', import moment from 'moment').
+  Use Read to inspect webpack/vite/build configs for code splitting.
+
+Analyze the codebase and report the following:
 
 1. FRONTEND PERFORMANCE
    - JavaScript bundles over 500KB (uncompressed) blocking initial
@@ -460,26 +630,39 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (EXPLAIN output, Playwright
+    network waterfall, LSP N+1 trace, grep match)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 8 — Dead Code, Code Bloat & Maintainability
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical Dead Code, Severe Code Bloat, and Maintainability Risks.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- LSP/Serena: Use find-all-references on exported functions, components,
+  classes, and endpoints. Zero references = dead code. This is the
+  highest-impact tool for this audit — it turns guesswork into certainty.
+  Prioritize checking: exported API handlers, utility functions, React
+  components, and service classes.
+- Fallback: Use Grep to find function/class/component definitions, then
+  search for their usage across the codebase. Use Glob to find
+  test/debug route files. Cross-reference backend route registrations
+  against frontend API call sites (fetch, axios, $http).
+
+Analyze the codebase and report the following:
 
 1. FRONTEND BLOAT
    - Components, pages, or route definitions that are imported/defined
@@ -518,27 +701,43 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (LSP 0-references, grep
+    cross-reference, Glob route scan)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 9 — Error Handling, Resilience & Failure Recovery
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical Error Handling Gaps, System Resilience, and Failure
 Recovery.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- Sequential Thinking: Trace failure paths step-by-step. For each
+  external dependency (DB, cache, queue, third-party API), model what
+  happens when it fails: timeout, error, or returns garbage data.
+- LSP/Serena: Find all try/catch blocks, error middleware registrations,
+  and error boundary components. Trace from catch blocks to verify
+  errors are actually handled (re-thrown, logged with context, surfaced
+  to user) — not silently swallowed.
+- Fallback: Use Grep to find catch, except, rescue, .catch( patterns.
+  Search for empty catch blocks (catch followed by {} or pass).
+  Search for timeout configurations (timeout, connectTimeout,
+  requestTimeout). Use Read to inspect error middleware and global
+  error handlers.
+
+Analyze the codebase and report the following:
 
 1. MISSING OR BROKEN ERROR HANDLING
    - try/catch blocks that silently swallow errors (empty catch, or
@@ -579,27 +778,43 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (Sequential Thinking
+    failure trace, LSP catch-block analysis, grep match)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
 ### Prompt 10 — Data Integrity, Migrations & Storage Security
 
-```
+````
 You are a senior full-stack engineer performing a segmented gap analysis
-and integration audit. You have been provided with frontend and backend
-source code as context.
+and integration audit using Claude Code. Actively investigate the
+codebase using available tools.
 
 SCOPE: Critical Data Integrity Issues, Migration Safety, and Storage
 Security.
 
-Analyze the provided code and report the following:
+TOOL-AUGMENTED INVESTIGATION (use available tools, skip when absent):
+- Database MCP: Inspect actual schema constraints (NOT NULL, UNIQUE,
+  foreign keys, CHECK). List all indexes and compare against columns
+  used in WHERE/ORDER BY clauses. Compare column types against what
+  the application code expects.
+- LSP/Serena: Trace migration file execution order. Find all multi-table
+  write operations and verify they are wrapped in transactions. Use
+  find-references on model fields to detect unused columns.
+- Fallback: Use Grep to find migration files and inspect for destructive
+  operations (DROP, ALTER, TRUNCATE). Search for transaction patterns
+  (BEGIN, COMMIT, transaction(), @transaction). Use Read to inspect
+  schema/model definitions and compare against application usage.
+  Use Glob to find all migration files and seed scripts.
+
+Analyze the codebase and report the following:
 
 1. DATA INTEGRITY
    - Missing database constraints that the application logic assumes
@@ -643,13 +858,15 @@ OUTPUT FORMAT:
 For each finding, provide:
   - Severity: CRITICAL or HIGH
   - Location: File path(s) and function/component name(s)
+  - Evidence: Tool/method that revealed this (DB schema query, LSP
+    transaction trace, migration file read, grep match)
   - Description: What is wrong
   - Impact: What breaks or what an attacker can exploit
   - Remediation: Concrete fix with a code-level suggestion
 
 Group findings into a prioritized remediation plan. CRITICALs first.
 Omit Medium/Low severity findings entirely.
-```
+````
 
 ---
 
@@ -662,6 +879,9 @@ Every prompt enforces a consistent output structure. Each finding should look li
 
 - **Severity:** CRITICAL
 - **Location:** `src/api/payments.ts` → `processPayment()`
+- **Evidence:** Database MCP schema query revealed `price` column is
+  DECIMAL(10,2) but API serializes it as JavaScript `number` (float).
+  Grep confirmed frontend sends `price` field in POST body.
 - **Description:** The payment endpoint accepts a `price` field from the
   client payload and uses it directly instead of reading the price from
   the database. An attacker can set any price.
@@ -672,12 +892,14 @@ Every prompt enforces a consistent output structure. Each finding should look li
   matches the database price.
 ```
 
+> The **Evidence** field distinguishes tool-verified findings (higher confidence) from static-analysis findings. When MCP tools are available, cite the specific tool output. When using fallbacks, cite the grep pattern or file read.
+
 ---
 
 ## Tips for Best Results
 
-**1. Feed real code, not descriptions.**
-Paste actual source files. The more concrete the input, the more concrete the findings.
+**1. Run Prompt 0 first (Claude Code users).**
+Tool detection ensures every subsequent prompt uses the best available investigation method automatically.
 
 **2. Scope the context to one domain at a time.**
 Running the full suite against "the entire app" yields shallow results. Instead, run it against your auth system, then your payment system, then your admin panel, etc.
@@ -696,10 +918,31 @@ If your project uses a specific tech stack, add it to the opening context line. 
 
 ```
 You are a senior full-stack engineer specializing in Next.js 14 (App
-Router), Prisma ORM, and PostgreSQL. You have been provided with...
+Router), Prisma ORM, and PostgreSQL...
 ```
 
 This grounds the analysis in your actual stack and produces more specific recommendations.
+
+---
+
+## Tool-Prompt Matrix
+
+Quick reference showing which MCP tools enhance each prompt. All prompts fall back to built-in tools (Grep/Glob/Read/Bash) when MCP tools are unavailable.
+
+| Prompt | Seq. Thinking | Context7 | GitHub MCP | DB MCP | Playwright | LSP/Serena | Docker MCP | security-guidance |
+|--------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **1** Logic & Security | \* | | \* | | | \* | | |
+| **2** UX & Client Security | | | | | \* | \* | | |
+| **3** API & Endpoints | | \* | | \* | | \* | | |
+| **4** Architecture & System | \* | | \* | | | \* | \* | |
+| **5** UI & Interface | | | | | \* | \* | | |
+| **6** Testing & Supply Chain | | \* | \* | | | | | \* |
+| **7** Performance & Caching | | | | \* | \* | \* | | |
+| **8** Dead Code & Bloat | | | | | | \* | | |
+| **9** Error Handling | \* | | | | | \* | | |
+| **10** Data Integrity | | | | \* | | \* | | |
+
+> \* = tool enhances this prompt when available. LSP/Serena is the most broadly useful — it enhances 9 of 10 prompts.
 
 ---
 
@@ -707,14 +950,14 @@ This grounds the analysis in your actual stack and produces more specific recomm
 
 | Situation | Recommended Prompts |
 |---|---|
-| Pre-launch checklist | 1, 2, 3, 5, 6 |
-| Post-incident review | 4, 9, 10 |
-| Security hardening sprint | 1, 3, 4, 6 |
-| Performance firefighting | 7, 4 |
-| Tech debt paydown | 8, 7, 10 |
+| Pre-launch checklist | 0, 1, 2, 3, 5, 6 |
+| Post-incident review | 0, 4, 9, 10 |
+| Security hardening sprint | 0, 1, 3, 4, 6 |
+| Performance firefighting | 0, 7, 4 |
+| Tech debt paydown | 0, 8, 7, 10 |
 | New team onboarding audit | All (run sequentially) |
-| Pre-pen-test preparation | 1, 3, 4, 6 |
-| Accessibility compliance | 5, 2 |
+| Pre-pen-test preparation | 0, 1, 3, 4, 6 |
+| Accessibility compliance | 0, 5, 2 |
 
 ---
 
