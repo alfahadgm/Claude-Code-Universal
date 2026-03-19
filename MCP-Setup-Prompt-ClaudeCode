@@ -194,7 +194,7 @@ claude mcp add docker -- docker run --rm -i --pull=always ghcr.io/docker/mcp-too
 | `@modelcontextprotocol/server-fetch` | Claude Code has built-in web fetching |
 | `@modelcontextprotocol/server-filesystem` | Claude Code already has file access |
 | Context7 MCP | Installed as plugin (adds auto-trigger + agent + `/context7:docs`) |
-| Serena MCP | Native LSP plugins cover navigation for 10 languages |
+| Serena MCP | Conditional — auto-installed as fallback when detected language has no LSP plugin (see Step 2b) |
 
 > **Context window budget**: Each MCP server consumes context tokens for tool descriptions. Target 2-4 servers max. MCP Tool Search auto-activates when descriptions exceed 10% of context.
 
@@ -217,25 +217,73 @@ Check currently installed plugins first.
 /plugin install security-guidance@claude-plugins-official
 ```
 
-### 2b. LSP Plugin (install based on detected language — max 2 for polyglot)
+### 2b. Code Intelligence (tiered — LSP → Serena → grep)
 
-| Detected | Plugin | Install Command |
-|----------|--------|----------------|
-| `typescript` or `node` (with TS) | TypeScript LSP | `/plugin install lsp-typescript@claude-plugins-official` |
-| `node` (JS only, no TS) | TypeScript LSP | `/plugin install lsp-typescript@claude-plugins-official` (handles JS too) |
-| `python` | Pyright LSP | `/plugin install lsp-pyright@claude-plugins-official` |
-| `rust` | rust-analyzer | `/plugin install lsp-rust-analyzer@claude-plugins-official` |
-| `go` | gopls | `/plugin install lsp-gopls@claude-plugins-official` |
-| `csharp` | C# LSP | `/plugin install lsp-csharp-ls@claude-plugins-official` |
-| `java` | jdtls | `/plugin install lsp-jdtls@claude-plugins-official` |
-| `swift` | SourceKit LSP | `/plugin install lsp-sourcekit-lsp@claude-plugins-official` |
-| `php` | phpactor | `/plugin install lsp-phpactor@claude-plugins-official` |
-| `lua` | Lua LS | `/plugin install lsp-lua-language-server@claude-plugins-official` |
+Three tiers of code navigation, best to worst. Install the highest tier available for each detected language.
 
-**Languages without official LSP plugins** (use grep-based fallback):
-Ruby, Elixir, Kotlin, Dart/Flutter, Scala, Haskell, Zig, Deno, Bun
+**Tier 1: LSP Plugin** — native, fastest (~50ms), zero config. Install if your language is in this table:
+
+**REQUIRED**: Enable the LSP tool first (if not already enabled). Add to `~/.claude/settings.json`:
+```json
+{
+  "env": {
+    "ENABLE_LSP_TOOL": "1"
+  }
+}
+```
+Or run with: `ENABLE_LSP_TOOL=1 claude`
+
+Each LSP plugin requires the language server binary on your PATH. If you see "Executable not found in $PATH" in `/plugin Errors`, install the binary from the table below.
+
+| Detected | Plugin Name | Install Command | Requires Binary |
+|----------|------------|----------------|-----------------|
+| `typescript` or `node` | typescript-lsp | `/plugin install typescript-lsp@claude-plugins-official` | `typescript-language-server` (npm install -g typescript-language-server typescript) |
+| `python` | pyright-lsp | `/plugin install pyright-lsp@claude-plugins-official` | `pyright-langserver` (npm install -g pyright) |
+| `rust` | rust-analyzer-lsp | `/plugin install rust-analyzer-lsp@claude-plugins-official` | `rust-analyzer` (rustup component add rust-analyzer) |
+| `go` | gopls-lsp | `/plugin install gopls-lsp@claude-plugins-official` | `gopls` (go install golang.org/x/tools/gopls@latest) |
+| `csharp` | csharp-lsp | `/plugin install csharp-lsp@claude-plugins-official` | `csharp-ls` (dotnet tool install -g csharp-ls) |
+| `java` | jdtls-lsp | `/plugin install jdtls-lsp@claude-plugins-official` | `jdtls` (Eclipse JDT Language Server) |
+| `kotlin` | kotlin-lsp | `/plugin install kotlin-lsp@claude-plugins-official` | `kotlin-lsp` (requires manual install) |
+| `swift` | swift-lsp | `/plugin install swift-lsp@claude-plugins-official` | `sourcekit-lsp` (ships with Swift toolchain) |
+| `php` | php-lsp | `/plugin install php-lsp@claude-plugins-official` | `intelephense` (npm install -g intelephense) |
+| `lua` | lua-lsp | `/plugin install lua-lsp@claude-plugins-official` | `lua-language-server` (brew install lua-language-server) |
+| `c/cpp` | clangd-lsp | `/plugin install clangd-lsp@claude-plugins-official` | `clangd` (ships with LLVM/clang) |
 
 > If the project is polyglot (e.g., TypeScript frontend + Python backend), install up to 2 LSP plugins. Beyond 2, context bloat outweighs benefit.
+
+**Tier 2: Serena MCP** — semantic code intelligence via tree-sitter, covers 30+ languages. **Auto-install as fallback** if ANY detected language is NOT in the LSP table above AND `uvx` is available.
+
+Languages that trigger Serena fallback: Ruby, Elixir, Dart/Flutter, Scala, Haskell, Zig, Deno, Bun, or any other language without an LSP plugin above.
+
+**macOS / Linux:**
+```bash
+claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project "$(pwd)"
+```
+
+**Windows (native):**
+```bash
+claude mcp add-json serena "{\"command\":\"uvx\",\"args\":[\"--from\",\"git+https://github.com/oraios/serena\",\"serena\",\"start-mcp-server\",\"--context\",\"ide-assistant\",\"--project\",\"<PROJECT_PATH_WITH_FORWARD_SLASHES>\"]}"
+```
+Replace `<PROJECT_PATH_WITH_FORWARD_SLASHES>` with the actual path using forward slashes.
+
+After adding, run the indexer:
+```bash
+uvx --from git+https://github.com/oraios/serena serena project index
+```
+
+> Serena is project-scoped (no `--scope user`) because it indexes the current codebase.
+> Requires Python and `uvx`. If `uvx` is not available, skip and note in the report.
+> Windows users may hit exit code 127 errors — ensure npm is on the system PATH.
+
+**Tier 3: grep/ripgrep** — text matching only, no semantic understanding. This is the automatic fallback if neither LSP nor Serena is available. No installation needed, but note the limitation in the report.
+
+**Decision logic summary:**
+```
+For each detected language:
+  → LSP plugin exists? Install LSP plugin. Done.
+  → No LSP plugin + uvx available? Install Serena (once, covers all unsupported languages). Done.
+  → No LSP plugin + no uvx? Fall back to grep. Note in report.
+```
 
 ### 2c. Conditional plugins
 
@@ -316,10 +364,11 @@ If `CLAUDE.md` exists, append after a `---` separator. Otherwise create it.
 - Use for system design, trade-off evaluation, complex debugging
 - Skip for straightforward single-file changes
 
-### LSP — for all code navigation
-- Use go-to-definition, find-all-references, hover for type info
-- Prefer LSP over grep for symbol navigation
-- Falls back to grep for non-code files or if LSP is unavailable
+### Code Intelligence (tiered: LSP → Serena → grep)
+- **LSP** (if installed): Use go-to-definition, find-all-references, hover for type info
+- **Serena** (if installed as fallback): Use `find_symbol`, `find_referencing_symbols`, `get_project_overview`
+- **grep** (last resort): Only for non-code files or if neither LSP nor Serena is available
+- Always prefer semantic tools over text search
 
 [ONLY if GitHub MCP installed:]
 ### GitHub MCP — for PR/issue workflows
@@ -375,7 +424,7 @@ When user says "commit", "push", "create PR", or "ship it":
 - YAGNI — don't build what isn't needed
 - Evidence over assumptions — verify before claiming
 - Tests must fail before implementation (TDD)
-- Prefer semantic navigation (LSP) over text search (grep)
+- Prefer semantic navigation (LSP → Serena → grep, in that order)
 - Check library docs (Context7) before writing integration code
 ```
 
@@ -466,13 +515,18 @@ Monorepo: [yes/no]
 | pr-review-toolkit | ✅ / ❌ | — | Core workflow |
 | security-guidance | ✅ / ❌ | — | Security hook |
 | LSP: [language] | ✅ / ⏭️ N/A | — | [matched / no plugin available] |
+| Serena MCP | ✅ / ⏭️ Skipped | local | [fallback for unsupported LSP languages / all languages have LSP / uvx not available] |
 | Security hooks | ✅ / ❌ | — | .claude/settings.local.json |
 | CLAUDE.md | ✅ / ❌ | — | [created / updated] |
 
 ### Manual Steps Required
 - [ ] [List anything the user needs to do: authenticate gh, install uv, fill in build commands, etc.]
 
-### Languages Without LSP Support
-- [ ] [List any detected languages that have no official LSP plugin, with note that grep fallback will be used]
+### Code Intelligence Coverage
+| Language | Tier | Tool | Notes |
+|----------|------|------|-------|
+| [for each detected language] | Tier 1 / Tier 2 / Tier 3 | LSP / Serena / grep | [any caveats] |
+
+> Tier 1 (LSP) = best, native integration. Tier 2 (Serena) = good, tree-sitter semantic analysis. Tier 3 (grep) = text matching only, no semantic understanding.
 
 Do not ask me questions. Just do it all and confirm.
