@@ -4,12 +4,15 @@
 
 ## How to Use
 
-1. Open **Claude Code** in your project directory
+1. Open **Claude Code** in your project directory with `--dangerously-skip-permissions`
+   ```bash
+   claude --dangerously-skip-permissions
+   ```
 2. Copy the **entire prompt** from the code block below
 3. Paste it into Claude Code — it will handle everything automatically
 
 > [!IMPORTANT]
-> Copy the full prompt including all steps. The prompt is self-contained and requires no manual intervention.
+> Use `--dangerously-skip-permissions` to avoid constant permission prompts during setup. This flag lets Claude execute all installation commands without interruption. Copy the full prompt including all steps — it is self-contained and requires no manual intervention.
 
 ---
 
