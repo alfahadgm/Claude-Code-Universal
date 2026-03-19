@@ -17,7 +17,6 @@ A battle-tested collection of structured prompts for conducting thorough codebas
 - [Why This Exists](#why-this-exists)
 - [How to Use](#how-to-use)
 - [The Prompts](#the-prompts)
-  - [Prompt 0 — Tool Detection Preamble](#prompt-0--tool-detection-preamble)
   - [Prompt 1 — Features, Logic Gaps & Business Logic Security](#prompt-1--features-logic-gaps--business-logic-security)
   - [Prompt 2 — UX Clarity, Usability & Client-Side Security](#prompt-2--ux-clarity-usability--client-side-security)
   - [Prompt 3 — API & Data Integration Flaws & Endpoint Security](#prompt-3--api--data-integration-flaws--endpoint-security)
@@ -57,13 +56,12 @@ Code reviews catch syntax issues. These prompts catch **systemic failures** — 
 
 ### Prerequisites
 
-> **Option A — Claude Code + MCP tools (recommended)**
->
-> Run the [MCP Setup Guide](MCP-SETUP.md) first, then start with **Prompt 0** to detect available tools. All subsequent prompts will automatically use them.
+Each prompt is **standalone** — pick whichever ones match your current concern. You don't need to run them all or in order.
 
-> **Option B — Any AI assistant (no MCP)**
->
-> Every prompt works without MCP tools. The AI will use built-in tools (Grep, Glob, Read) or analyze provided code directly. Simply skip Prompt 0.
+> [!TIP]
+> For the **best possible audit**, run the [MCP Setup Prompt](MCP-SETUP.md) first. It installs MCP servers and plugins that give prompts deeper, tool-verified analysis (LSP tracing, database schema inspection, browser testing, etc.). Without it, every prompt still works — they just fall back to built-in tools like Grep, Glob, and Read.
+
+The prompts work with **any AI assistant** — Claude Code, ChatGPT, Gemini, or anything that can read your codebase.
 
 For best results, make sure the AI has access to these context types:
 
@@ -77,97 +75,27 @@ For best results, make sure the AI has access to these context types:
 ### Running the Audit
 
 ```
-Step 1   Run Prompt 0 (Claude Code only, optional)
-         Detects available MCP tools. Skip if not using Claude Code.
+Step 1   Pick the prompt(s) that match your concern
+         See "Which Prompt When?" below for guidance.
              │
-Step 2   Run prompts sequentially
-         Copy-paste each prompt one at a time. Each builds on the
-         mental model established by earlier ones.
+Step 2   Paste the prompt into your AI assistant
+         Each prompt is self-contained — no setup or ordering required.
              │
-Step 3   Collect and deduplicate
-         Some findings may overlap across prompts. Consolidate
-         them into a single remediation backlog.
+Step 3   Review findings and deduplicate
+         If you ran multiple prompts, consolidate overlapping
+         findings into a single remediation backlog.
              │
 Step 4   Prioritize and execute
          Use severity ratings and remediation plans to drive
          sprint planning or hotfix cycles.
 ```
 
-### Recommended Workflow
-
-```
-Prompt 0 (Detection) ─── run once per session
-    │
-    ├── Prompt 1 (Logic) ──► Prompt 2 (UX) ──► Prompt 3 (API) ──► Prompt 4 (Architecture)
-    │
-    ├── Prompt 5 (UI) ──► Prompt 6 (Testing) ──► Prompt 7 (Perf) ──► Prompt 8 (Maintenance)
-    │
-    └── Prompt 9 (Error Handling) ──► Prompt 10 (Data Integrity) ──► Consolidate & Ship
-```
-
 > [!TIP]
-> You don't have to run all 10. Pick the prompts that match your current concern.
-> **Shipping soon?** Focus on 1, 3, 6, 7. **Got a pen-test report?** Focus on 1, 3, 4, 6.
+> **Shipping soon?** Focus on 1, 3, 6, 7. **Got a pen-test report?** Focus on 1, 3, 4, 6. **Performance issues?** Run 7 and 4.
 
 ---
 
 ## The Prompts
-
----
-
-### Prompt 0 — Tool Detection Preamble
-
-> **Run once** at the start of an audit session. Detects available MCP servers, plugins, and built-in tools. Subsequent prompts reference the inventory to decide which investigation methods to use. **Skip this if not using Claude Code.**
-
-````
-You are preparing for a codebase audit. Before running any analysis
-prompts, detect which tools are available in this session.
-
-DETECTION STEPS:
-
-1. MCP SERVERS — check if each tool is callable:
-   - Sequential Thinking: attempt a trivial
-     mcp__sequential-thinking__sequentialthinking call
-   - GitHub MCP: check if github tools are listed (search_repositories,
-     get_file_contents, list_issues, etc.)
-   - Database MCP: check if supabase or dbhub tools are listed
-     (list_tables, run_query, etc.)
-   - Playwright MCP: check if playwright tools are listed
-     (browser_navigate, browser_snapshot, etc.)
-   - Docker MCP: check if docker tools are listed
-   - Serena: check if serena tools are listed (find_symbol,
-     find_referencing_symbols, get_project_overview, etc.)
-
-2. PLUGINS — check for:
-   - Context7 plugin (resolve-library-id, query-docs)
-   - security-guidance plugin
-   - LSP tools (go-to-definition, find-references, hover)
-
-3. BUILT-IN TOOLS — always available in Claude Code:
-   - Grep, Glob, Read, Bash, Edit, Write
-
-OUTPUT — report as a compact table:
-
-TOOL INVENTORY:
-| Tool                | Status  | Notes                      |
-|---------------------|---------|----------------------------|
-| Sequential Thinking | YES/NO  |                            |
-| Context7            | YES/NO  |                            |
-| GitHub MCP          | YES/NO  |                            |
-| Database MCP        | YES/NO  | type: supabase / dbhub     |
-| Playwright MCP      | YES/NO  |                            |
-| Docker MCP          | YES/NO  |                            |
-| LSP                 | YES/NO  | languages: [list]          |
-| Serena              | YES/NO  |                            |
-| security-guidance   | YES/NO  |                            |
-| Grep/Glob/Read/Bash | YES     | built-in, always available |
-
-Carry this inventory forward. Each subsequent audit prompt will
-reference it to decide which investigation methods to use.
-
-If NO MCP tools are detected, that is fine — all audit prompts have
-built-in fallbacks using Grep, Glob, Read, and Bash.
-````
 
 ---
 
@@ -916,10 +844,10 @@ Every prompt enforces a consistent output structure. Each finding should look li
 ## Tips for Best Results
 
 > [!TIP]
-> **1. Run Prompt 0 first** (Claude Code users) — Tool detection ensures every subsequent prompt uses the best available investigation method automatically.
+> **1. Install MCP tools for deeper analysis** — Run the [MCP Setup Prompt](MCP-SETUP.md) to auto-install MCP servers and plugins. Prompts will automatically use them for tool-verified findings (LSP tracing, DB schema inspection, browser testing).
 
 > [!TIP]
-> **2. Scope the context to one domain at a time** — Running the full suite against "the entire app" yields shallow results. Instead, run it against your auth system, then your payment system, then your admin panel, etc.
+> **2. Scope the context to one domain at a time** — Running a prompt against "the entire app" yields shallow results. Instead, run it against your auth system, then your payment system, then your admin panel, etc.
 
 > [!TIP]
 > **3. Include both frontend and backend** — These prompts find the *gaps between layers*. Frontend-only or backend-only analysis misses the most dangerous class of bugs.
@@ -965,14 +893,14 @@ Quick reference showing which MCP tools enhance each prompt. All prompts fall ba
 
 | Situation | Recommended Prompts |
 |---|---|
-| Pre-launch checklist | `0` `1` `2` `3` `5` `6` |
-| Post-incident review | `0` `4` `9` `10` |
-| Security hardening sprint | `0` `1` `3` `4` `6` |
-| Performance firefighting | `0` `7` `4` |
-| Tech debt paydown | `0` `8` `7` `10` |
-| New team onboarding audit | All (run sequentially) |
-| Pre-pen-test preparation | `0` `1` `3` `4` `6` |
-| Accessibility compliance | `0` `5` `2` |
+| Pre-launch checklist | `1` `2` `3` `5` `6` |
+| Post-incident review | `4` `9` `10` |
+| Security hardening sprint | `1` `3` `4` `6` |
+| Performance firefighting | `7` `4` |
+| Tech debt paydown | `8` `7` `10` |
+| New team onboarding audit | All |
+| Pre-pen-test preparation | `1` `3` `4` `6` |
+| Accessibility compliance | `5` `2` |
 
 ---
 

@@ -30,15 +30,17 @@ Your Project  +  Claude Code  +  These Prompts  =  Comprehensive Audit
 | Step | Action |
 |------|--------|
 | **1. Setup** (one-time) | Paste the [MCP Setup Prompt](MCP-SETUP.md) into Claude Code. It auto-detects your stack and installs matching tools. |
-| **2. Detect** | Run Prompt 0 to identify available MCP tools for subsequent prompts. |
-| **3. Audit** | Run Prompts 1-10 sequentially, or pick the ones relevant to your situation. |
-| **4. Ship** | Consolidate findings into a remediation backlog and prioritize. |
+| **2. Pick** | Choose the prompt(s) that match your current concern — see [Which Prompts Should I Run?](#which-prompts-should-i-run) |
+| **3. Audit** | Paste the prompt into Claude Code and let it investigate your codebase. |
+| **4. Ship** | Use findings and remediation steps to drive sprint planning or hotfix cycles. |
+
+> [!TIP]
+> For the **best possible audit**, run the [MCP Setup Prompt](MCP-SETUP.md) first. It installs MCP servers and plugins that give prompts deeper, tool-verified analysis. Without it, prompts still work — they just fall back to built-in tools.
 
 ## The Prompts
 
 | # | Domain | What It Catches |
 |---|--------|----------------|
-| **0** | Tool Detection | Identifies available MCP servers, plugins, and built-in tools |
 | **1** | Logic & Business Security | Race conditions, auth bypasses, state machine flaws |
 | **2** | UX & Client-Side Security | XSS vectors, misleading UI states, accessibility gaps |
 | **3** | API & Endpoint Security | Broken access control, data leaks, integration mismatches |
@@ -58,28 +60,28 @@ Your Project  +  Claude Code  +  These Prompts  =  Comprehensive Audit
 # 1. Open Claude Code in your project
 cd your-project && claude
 
-# 2. Paste the MCP Setup Prompt (one-time setup)
+# 2. (Optional) Paste the MCP Setup Prompt for deeper analysis
 #    Copy contents of MCP-SETUP.md into Claude Code
 
-# 3. Run Prompt 0 to detect tools, then Prompts 1-10
-#    Copy each prompt from AUDIT-PROMPTS.md sequentially
+# 3. Pick a prompt from AUDIT-PROMPTS.md and paste it in
+#    Each prompt is standalone — run whichever ones you need
 ```
 
 ### Without Claude Code
 
-> Every prompt works with **any AI assistant**. Skip Prompt 0 and paste prompts directly — they fall back to static analysis gracefully.
+> Every prompt works with **any AI assistant**. Paste any prompt directly — they fall back to static analysis gracefully.
 
 ## Which Prompts Should I Run?
 
 | Situation | Recommended Prompts |
 |---|---|
-| Pre-launch checklist | 0, 1, 2, 3, 5, 6 |
-| Post-incident review | 0, 4, 9, 10 |
-| Security hardening sprint | 0, 1, 3, 4, 6 |
-| Performance firefighting | 0, 7, 4 |
-| Tech debt paydown | 0, 8, 7, 10 |
-| New team onboarding audit | All (run sequentially) |
-| Pre-pen-test preparation | 0, 1, 3, 4, 6 |
+| Pre-launch checklist | 1, 2, 3, 5, 6 |
+| Post-incident review | 4, 9, 10 |
+| Security hardening sprint | 1, 3, 4, 6 |
+| Performance firefighting | 7, 4 |
+| Tech debt paydown | 8, 7, 10 |
+| New team onboarding audit | All |
+| Pre-pen-test preparation | 1, 3, 4, 6 |
 
 ## MCP Auto-Setup
 
