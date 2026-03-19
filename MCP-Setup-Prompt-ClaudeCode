@@ -256,7 +256,12 @@ Create or merge into `.claude/settings.local.json` (gitignored):
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "command": "bash -c 'TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -qiE \"(curl|wget).*\\|.*(sh|bash)|rm\\s+-rf\\s+/|> /etc/|chmod\\s+777\"; then echo \"BLOCKED: Dangerous command pattern detected\" >&2; exit 2; fi'"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -qiE \"(curl|wget).*\\|.*(sh|bash)|rm\\s+-rf\\s+/|> /etc/|chmod\\s+777\"; then echo \"BLOCKED: Dangerous command pattern detected\" >&2; exit 2; fi'"
+          }
+        ]
       }
     ]
   },
@@ -471,4 +476,3 @@ Monorepo: [yes/no]
 - [ ] [List any detected languages that have no official LSP plugin, with note that grep fallback will be used]
 
 Do not ask me questions. Just do it all and confirm.
-```
