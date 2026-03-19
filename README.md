@@ -1,75 +1,14 @@
 # Claude Code Universal
 
-> **A battle-tested prompt suite for conducting deep, structured codebase audits with AI assistants — powered by Claude Code and MCP integration.**
-
-<p align="center">
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-
-</p>
-
----
-
-## What Is This?
-
-Standard code reviews catch syntax issues. This toolkit catches **systemic failures** — the gaps between what your frontend assumes, what your backend delivers, what your tests cover, and what an attacker can exploit.
-
-| | |
-|---|---|
-| **10 audit prompts** | Covering logic, UX, APIs, architecture, testing, performance, dead code, error handling, and data integrity |
-| **Auto-detection setup** | Identifies your tech stack and installs only the relevant MCP servers, plugins, and hooks |
-| **Signal, not noise** | Every prompt filters to **Critical and High-priority issues only** with actionable remediation steps |
-
-## How It Works
-
-```
-Your Project  +  Claude Code  +  These Prompts  =  Comprehensive Audit
-```
-
-| Step | Action |
-|------|--------|
-| **1. Setup** (one-time) | Paste the [MCP Setup Prompt](MCP-SETUP.md) into Claude Code. It auto-detects your stack and installs matching tools. |
-| **2. Pick** | Choose the prompt(s) that match your current concern — see [Which Prompts Should I Run?](#which-prompts-should-i-run) |
-| **3. Audit** | Paste the prompt into Claude Code and let it investigate your codebase. |
-| **4. Ship** | Use findings and remediation steps to drive sprint planning or hotfix cycles. |
-
-> [!TIP]
-> For the **best possible audit**, run the [MCP Setup Prompt](MCP-SETUP.md) first. It installs MCP servers and plugins that give prompts deeper, tool-verified analysis. Without it, prompts still work — they just fall back to built-in tools.
-
-## The Prompts
-
-| # | Domain | What It Catches |
-|---|--------|----------------|
-| **1** | Logic & Business Security | Race conditions, auth bypasses, state machine flaws |
-| **2** | UX & Client-Side Security | XSS vectors, misleading UI states, accessibility gaps |
-| **3** | API & Endpoint Security | Broken access control, data leaks, integration mismatches |
-| **4** | Architecture & System Security | Circular dependencies, config drift, infrastructure holes |
-| **5** | UI & Interface Integrity | Missing error states, broken flows, incomplete CRUD |
-| **6** | Testing & Supply Chain | Coverage gaps, flaky tests, vulnerable dependencies |
-| **7** | Performance & Optimization | N+1 queries, memory leaks, missing caching |
-| **8** | Dead Code & Maintainability | Unused exports, duplicate logic, code bloat |
-| **9** | Error Handling & Resilience | Silent failures, missing retries, cascading errors |
-| **10** | Data Integrity & Storage | Migration risks, orphaned records, backup gaps |
+Structured codebase audit prompts for AI assistants — powered by Claude Code and MCP integration. Catches systemic failures across logic, security, APIs, architecture, testing, performance, and more. Filters to **Critical and High-priority issues only**.
 
 ## Quick Start
 
-### With Claude Code (recommended)
+1. Open Claude Code in your project: `cd your-project && claude`
+2. *(Optional)* Paste the [MCP Setup Prompt](MCP-SETUP.md) for deeper, tool-verified analysis
+3. Pick a prompt from [AUDIT-PROMPTS.md](AUDIT-PROMPTS.md) and paste it in
 
-```bash
-# 1. Open Claude Code in your project
-cd your-project && claude
-
-# 2. (Optional) Paste the MCP Setup Prompt for deeper analysis
-#    Copy contents of MCP-SETUP.md into Claude Code
-
-# 3. Pick a prompt from AUDIT-PROMPTS.md and paste it in
-#    Each prompt is standalone — run whichever ones you need
-```
-
-### Without Claude Code
-
-> Every prompt works with **any AI assistant**. Paste any prompt directly — they fall back to static analysis gracefully.
+> Works with **any AI assistant** — prompts fall back to static analysis without Claude Code.
 
 ## Which Prompts Should I Run?
 
@@ -94,46 +33,21 @@ The [setup prompt](MCP-SETUP.md) auto-detects and configures:
 - **VCS:** GitHub, GitLab, Bitbucket, Azure DevOps
 - **Monorepos:** Lerna, pnpm workspaces, Nx, Turborepo
 
-Works on macOS, Linux, Windows, and WSL with OS-specific command handling.
+Works on macOS, Linux, Windows, and WSL.
 
-## Key Design Principles
+## Design Principles
 
-| Principle | Description |
-|-----------|-------------|
-| **One domain per prompt** | Prevents shallow, scattered analysis |
-| **Critical and High only** | No low-severity noise |
-| **Security baked in** | Every prompt includes a security lens for its domain |
-| **Tool-adaptive** | Uses MCP tools when available, falls back to built-in tools when not |
-| **Actionable output** | Every finding includes severity, evidence, impact, and remediation |
-
-## Output Format
-
-Each finding follows a standardized structure:
-
-```
-Severity: Critical | High
-Location: file:line
-Evidence: [what was found]
-Description: [what's wrong]
-Impact: [what could happen]
-Remediation: [how to fix it]
-```
+- **One domain per prompt** — prevents shallow, scattered analysis
+- **Critical and High only** — no low-severity noise
+- **Security baked in** — every prompt includes a security lens
+- **Tool-adaptive** — uses MCP tools when available, falls back gracefully
+- **Parallel verification** — uncertain findings verified by subagents
+- **Actionable output** — every finding includes severity, evidence, impact, and remediation
 
 ## Contributing
 
-Found a gap? Have a domain-specific variant (mobile, ML pipelines, infrastructure)?
-
-1. Fork the repo
-2. Create a branch (`git checkout -b prompt/your-domain`)
-3. Add or modify prompts following the existing structure
-4. Submit a PR describing what the prompt catches and why it matters
-
-Keep contributions focused on **Critical and High-priority findings** — that's the core design principle.
+PRs welcome. Fork, branch (`git checkout -b prompt/your-domain`), and submit. Keep contributions focused on Critical and High-priority findings.
 
 ## License
 
-MIT — use it, fork it, adapt it, share it.
-
----
-
-<p align="center"><strong>Built for developers who ship fast and sleep well.</strong></p>
+MIT
